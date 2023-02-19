@@ -22,11 +22,12 @@ Below, we provide an example:
  > - Good to know! When cropping with CROPro for a `negative` patient, CROPro uses the slices for which there is prostate gland segmentation. Further, it will exclude slices depending on the size of the segmentation (e.g., very small segmentation areas are not considered). 
 
 ### **_Why crop only slices with tumor ?_** 
-- In this implementation, the mains reason of cropping slices with lesions was to use them for training the AI model and to test image-level classifcation (e.g., AUC at the image level). 
+- In this implementation, the main reasons of cropping slices with lesions were to use them for training the AI model and to test image-level classification (e.g., image-level AUC).
 
 ### **_Why to crop a positive patient as being a negative or unknown patient ?_**
 
-- In a scenario where the health status (condition) of the patient (negative="healthy" or positive=malignant) is not given. The goal would be to crop and test all slices of a patient for which we have segmentation (e.g., AI or human segmentation), as some of the slices may have lesions. Therefore, when cropping for a negative patient, the prostate segmentation mask is used. Similarly, if we had no information about the patient, i.e., a patient with unknown health status, both use the prostate segmentation and have the same function. However, in a real example, the patient's health status is unknown. Therefore, we added the `unknown` patient status to distinguish it from the `negative` patient status.
+ - In a scenario where the patient's health status (negative="healthy" or positive=malignant) is not given. The goal would be to crop and test all slices of a patient for which segmentations are available (e.g., AI or human segmentation) `since some of the slices may have lesions.`
+ - In the case of a negative patient, the prostate segmentation mask is used. If no information is available about the patient, i.e., in the case of a patient with unknown health status, prostate segmentation is also used to crop all slices. This means that prostate segmentation is used for both negative and unknown patient's health status. Although both have the same function, in a real example the patient's health status is unknown. Therefore, it is important to separate the two so that the 'unknown' patient status can be distinguished from the 'negative' patient status. 
 ----
 
 
@@ -34,7 +35,7 @@ Below, we provide an example:
 <center>
 <span STYLE="font-size:20pt;">Examples</span>
 
-<span STYLE="font-size:12pt;color:SkyBlue">Negative</span>: a patient with non-significant prostate Cancer (Gleason Grade <= 1)
+<span STYLE="font-size:12pt;color:SkyBlue">Negative</span>: a patient with non-significant prostate cancer (Gleason Grade <= 1)
 
 <span STYLE="font-size:12pt;color:Red">Positive</span> : a patient with clinically significant prostate cancer (Gleason Grade => 2)
 
@@ -50,7 +51,7 @@ The <span style="color:SkyBlue;">blue</span> area represents prostate gland segm
 <div class="center">  <div> <img src="./readme/segmentation/negative/PICAI/10001_1000001/T2W/T2W_axial0007.png" width="250" height="250" /> <img src="./readme/segmentation/negative/PICAI/10001_1000001/ADC/ADC_axial0007.png" width="250" height="250" alt="slice "/>  <img src="./readme/segmentation/negative/PICAI/10001_1000001/HBV/HBV_axial0007.png" width="250" height="250" alt="slice "/> </div></div>
 
 
-<span STYLE="font-size:12pt">   Method: Stride CROPro </span> <div class="center"> Cropped area: 128x128 - Pixel Spacing: 0.5 x 0.5 mm<sup>2</sup> <div> <img src="./readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_T2W.png" width="128" height="128" /> <img src="./readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_ADC.png" width="128" height="128" alt="slice "/>  <img src="./readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_HBV.png" width="128" height="128" alt="slice "/>
+<span STYLE="font-size:12pt">   Method: Stride Cropping </span> <div class="center"> Cropped area: 128x128 - Pixel Spacing: 0.5 x 0.5 mm<sup>2</sup> <div> <img src="./readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_T2W.png" width="128" height="128" /> <img src="./readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_ADC.png" width="128" height="128" alt="slice "/>  <img src="./readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_HBV.png" width="128" height="128" alt="slice "/>
 
 <div class="center"> Cropped area: 128x128 - Pixel Spacing: 0.4 x 0.4 mm<sup>2</sup> <div> <img src="./readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_160_166_T2W.png" width="128" height="128" /> <img src="./readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_160_166_ADC.png" width="128" height="128" alt="slice "/>  <img src="./readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_160_166_HBV.png" width="128" height="128" alt="slice "/> 
 
@@ -65,10 +66,10 @@ The <span style="color:SkyBlue;">blue</span> area represents prostate gland segm
 The <span STYLE="color:red">red</span> area represents lesion segmentations
 <div class="center">  <div> <img src="./readme/segmentation/positive/PICAI/10117_1000117/human/t2w-human/axial15_seg.png" width="250" height="250" /> <img src="./readme/segmentation/positive/PICAI/10117_1000117/human/adc-human/axial15_seg.png" width="250" height="250" alt="slice "/>  <img src="./readme/segmentation/positive/PICAI/10117_1000117//human/hbv-human/axial15_seg.png" width="250" height="250" alt="slice "/> </div></div>
 
-
+<span STYLE="font-size:12pt">   Method: Stride Cropping </span> 
 <div class="center"> Cropped area: 128x128 - pixel spacing: 0.5 x 0.5mm<sup>2</sup> 
  
- Cropping Method: Stride  
+
 
 TW2 (left) -  ADC (middle) -  HBV (right) 
 
@@ -206,13 +207,13 @@ crop_stride = 32  # The crop stride number is a factor when using the stride-cro
 sample_number = 12 # The sample number is a factor when using the random-crop technique
 normalized_image = True # In case the original images were normalized, we need to define normalized_image equal to True 
 do_normalization = True # if this is false, normalized_image must be false
-# when you perform normalization, the images are normalized with min = 0% and max = 95% percentile of the current sequence and slice
+# when you perform normalization, the images are normalized with min = 0% and max = 95% percentile of the current sequence and slice. 
 # The original implementation uses only normalized T2W images, which means that do_normalization=False. (See main.py)
-# the file responsible for saving is located at class- > saveFilesC.py
+# The file responsible for saving is located at class- > saveFilesC.py
 if do_normalization:
     normalized_image=False
 # In case you want to exclude slices. For example, the first (APEX) and the last (BASE) slice you need to set keep_all_slice = False 
-# and number_of_slices_to_exclude_from_mask_gland = 1, which will remove the first and the last slice found with segmentation of the prostate gland.
+# and number_of_slices_to_exclude_from_mask_gland = [1,2,..,N], which will remove the first and the last slice found with segmentation of the prostate gland.
 keep_all_slice = True
 number_of_slices_to_exclude_from_mask_gland = 1
 saved_image_type = "png" # choose your desireble format for the croped patches to be saved

@@ -26,7 +26,7 @@ if do_normalization:
     normalized_image=False
 
 # In case you want to exclude slices. For example, the first (APEX) and the last (BASE) slice you need to set keep_all_slice = False 
-# and number_of_slices_to_exclude_from_mask_gland = [1,2,..,N ], which will remove the first and the last slice found with segmentation of the prostate gland
+# and number_of_slices_to_exclude_from_mask_gland = [1,2,..,N], which will remove the first and the last slice found with segmentation of the prostate gland
 keep_all_slice = True
 number_of_slices_to_exclude_from_mask_gland = 1
 saved_image_type = "png" # choose your desireble format for the croped patches to be saved
