@@ -161,7 +161,6 @@ We have provided two patients from [PI-CAI challenge](https://pi-cai.grand-chall
  ┃ ┃ ┗ 📂10117_1000117
  ┃ ┃ ┃ ┣ 📜10117_1000117_ADC.nii.gz
  ┃ ┃ ┃ ┣ 📜10117_1000117_HBV.nii.gz
- ┃ ┃ ┃ ┣ 📜10117_1000117_Lesions.nii.gz
  ┃ ┃ ┃ ┣ 📜10117_1000117_NormT2WI.nii.gz
  ┃ ┃ ┃ ┣ 📜10117_1000117_ProstateMask.nii.gz
  ┃ ┃ ┃ ┗ 📜10117_1000117_T2WI.nii.gz
