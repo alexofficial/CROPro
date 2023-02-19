@@ -8,6 +8,7 @@ The official implementation was performed with T2-weighted images. However, in t
 
 ## **Read Before use**
 
+
 ### **What CROPro can do?**
 First, there are three different teqnuinces implemented: `Center`, `Random` and `Stride` cropping that can be used. Second, depending on `patient status (negative/unknown and positive)`, CROPro can be used to crop patches of MRI images with different settings. Below, we provide an example:
 
@@ -112,12 +113,11 @@ TW2 (left) -  ADC (middle) -  HBV (right)
 
 ## **Installation**
 ### **Clone**
-`$ git clone https://github.com/alexofficial/CROPro.git`
+- `$ git clone https://github.com/alexofficial/CROPro.git`
 
-`$ cd CROPro/`
 ### **Conda Enviroment**
-`$ conda env create -f conda_env/cropro.yml`
-`$ source activate cropro`
+- `$ conda env create -f conda_env/cropro.yml`
+- `$ source activate cropro`
 
 >Note: if you encounter any error you can manually download the necessary packages: see `requirements.txt`
 
@@ -157,9 +157,10 @@ We have provided two patients from [PI-CAI challenge](https://pi-cai.grand-chall
  ┃ ┃ ┗ 📂10117_1000117
  ┃ ┃ ┃ ┣ 📜10117_1000117_ADC.nii.gz
  ┃ ┃ ┃ ┣ 📜10117_1000117_HBV.nii.gz
+ ┃ ┃ ┃ ┣ 📜10117_1000117_Lesions.nii.gz
  ┃ ┃ ┃ ┣ 📜10117_1000117_NormT2WI.nii.gz
- ┃ ┃ ┃ ┣ 📜10117_1000117_PZL.nii.gz
- ┃ ┃ ┃ ┗ 📜10117_1000117_ProstateMask.nii.gz
+ ┃ ┃ ┃ ┣ 📜10117_1000117_ProstateMask.nii.gz
+ ┃ ┃ ┃ ┗ 📜10117_1000117_T2WI.nii.gz
  ┃ ┗ 📂segmentation
  ┃ ┃ ┣ 📂AI-gland
  ┃ ┃ ┃ ┗ 📜10117_1000117.nii.gz
