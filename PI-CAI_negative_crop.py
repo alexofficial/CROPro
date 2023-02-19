@@ -12,13 +12,13 @@ crop_stride = 32  # The crop stride number is a factor when using the stride-cro
 sample_number = 12 # The sample number is a factor when using the random-crop technique
 normalized_image = True # In case the original images were normalized, we need to define normalized_image equal to True 
 do_normalization = True # if this is false, normalized_image must be false
-# when you perform normalization, the images are normalized with min = 0% and max = 95% percentile of the current sequence and slice
+# when you perform normalization, the images are normalized with min = 0% and max = 95% percentile of the current sequence and slice. 
 # The original implementation uses only normalized T2W images, which means that do_normalization=False. (See main.py)
-# the file responsible for saving is located at class- > saveFilesC.py
+# The file responsible for saving is located at class- > saveFilesC.py
 if do_normalization:
     normalized_image=False
 # In case you want to exclude slices. For example, the first (APEX) and the last (BASE) slice you need to set keep_all_slice = False 
-# and number_of_slices_to_exclude_from_mask_gland = 1, which will remove the first and the last slice found with segmentation of the prostate gland.
+# and number_of_slices_to_exclude_from_mask_gland = [1,2,..,N], which will remove the first and the last slice found with segmentation of the prostate gland.
 keep_all_slice = True
 number_of_slices_to_exclude_from_mask_gland = 1
 saved_image_type = "png" # choose your desireble format for the croped patches to be saved
@@ -43,7 +43,3 @@ CROProC = CROPro(crop_method=crop_method, orig_img_path_t2w=orig_img_path_t2w,or
                       path_to_save=path_to_save, keep_all_slice=keep_all_slice, 
                       number_of_slices_to_exclude_from_mask_gland=number_of_slices_to_exclude_from_mask_gland)
 CROProC.cropro()
-
-
-
-

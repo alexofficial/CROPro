@@ -18,15 +18,15 @@ c_min_positive = 0.2 # This factor controls the minimum accepted area of lesion 
 # However, for PI-CAI dataset that is seperate file. Therefore, tumor_label_level=1.
 tumor_label_level = 1 
 
-# If you want to normalize the images we provide a normalization using min = 0% and max = 95% percentile of the current sequence and slice. 
-# These parameters can be change (see main.py)
-# the file responsible for saving is located at class- > saveFilesC.py
+# when you perform normalization, the images are normalized with min = 0% and max = 95% percentile of the current sequence and slice. 
+# The original implementation uses only normalized T2W images, which means that do_normalization=False. (See main.py)
+# The file responsible for saving is located at class- > saveFilesC.py
 do_normalization = True # if this is false, normalized_image must be false
 if do_normalization:
     normalized_image=False
 
 # In case you want to exclude slices. For example, the first (APEX) and the last (BASE) slice you need to set keep_all_slice = False 
-# and number_of_slices_to_exclude_from_mask_gland = 1, which will remove the first and the last slice found with segmentation of the prostate gland.
+# and number_of_slices_to_exclude_from_mask_gland = [1,2,..,N ], which will remove the first and the last slice found with segmentation of the prostate gland
 keep_all_slice = True
 number_of_slices_to_exclude_from_mask_gland = 1
 saved_image_type = "png" # choose your desireble format for the croped patches to be saved

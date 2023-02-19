@@ -2,7 +2,7 @@
 
 This repository provides the official implementation of `CROPro: A tool for automated cropping of prostate MR images`. 
 
-The official implementation was performed with T2-weighted images. However, in this repository we also included cropping biMRI sequences (T2W, ADC, HBV).
+The official implementation was performed with T2-weighted images. However, in this repository we also implemented cropping biparametric MRI (biMRI) sequences such as T2-Weigted (T2W), Apparent diffusion coefficient (ADC) and high-b-value (HBV) Diffusion-weighted (DWI) MRI.
 
 ----
 
@@ -10,14 +10,16 @@ The official implementation was performed with T2-weighted images. However, in t
 
 
 ### **What CROPro can do?**
-First, there are three different teqnuinces implemented: `Center`, `Random` and `Stride` cropping that can be used. Second, depending on `patient status (negative/unknown and positive)`, CROPro can be used to crop patches of MRI images with different settings. Below, we provide an example:
+First, there are three different techniques implemented to crop images: `Center`, `Random` and `Stride` cropping. Second, depending on `patient status (negative/unknown and positive)`, CROPro can be used to crop patches of MRI images with different settings. 
 
-- In a patient with negative ("healthy") or a patient with ("unknown") health status, CROPro can be used to crop patches of images over the prostate area. In both scenarios (negative/unknown), segmentation of the MRI prostate gland area is required. 
-- In a patient with positive health status ("lesion"), CROPro can be used to crop areas of MRI images with lesions. where both prosatte  and lesion masks/segmentations are required.
+Below, we provide an example:
 
- > - There are also a number of settings that can be used. These include `automatic normalization`, `exclusion of slices` from the apex (first) and the base (last) of MRI images, `criteria for cropping` based `on percent overlap` between prostate and lesion segmentation mask (positive), and so on (see `main.py`).
+- In a patient with negative ("healthy") or a patient with ("unknown") health status, CROPro can be used to crop image patches over the prostate area. In both scenarios (negative/unknown), segmentation of the MRI prostate gland area is required.
+- In a patient with positive health status ("lesion"), CROPro can be used to crop areas of MRI images with lesions. This setting requires masking/segmentation of both the prostate and the lesion.
+
+ > - There are also a number of settings that can be used. These include `automatic normalization`, `exclude slices` from the apex (first) and base (last) of MRI images, `lesions and prostate gland segmentation overlap criteria` (e.g, crop if lesion and prostate segmentation overlap on a % basis), more on this in `main.py`.
  > - In addition, for `positive` patients, the method uses prostate segmentation to crop the images. However, for each cropped image, a comparison of the lesion area within the cropped image is automatically performed. If this is successful, the cropped images are saved.
- > - when cropping with CROPro for a `negative` patient, CROPro uses the slices for which there is prostate gland segmentation. Further, it will exclude slices depending on the size of the segmentation (e.g., very small segmentation areas are not considered). 
+ > - Good to know! When cropping with CROPro for a `negative` patient, CROPro uses the slices for which there is prostate gland segmentation. Further, it will exclude slices depending on the size of the segmentation (e.g., very small segmentation areas are not considered). 
 
 ### **_Why crop only slices with tumor ?_** 
 - In this implementation, the mains reason of cropping slices with lesions was to use them for training the AI model and to test image-level classifcation (e.g., AUC at the image level). 
@@ -84,7 +86,7 @@ TW2 (left) -  ADC (middle) -  HBV (right)
 1. [CROPro: A tool for automated cropping of prostate MR images](#cropro-a-tool-for-automated-cropping-of-prostate-mr-images)
    - [Read Before use](#read-before-use)
       - [What CROPro can do?](#what-cropro-can-do)
-      - [Why to crop only slices with tumor?](#why-to-crop-only-slices-with-tumor)
+      - [Why to crop only slices with tumor ?](#why-crop-only-slices-with-tumor)
       - [Why to crop a positive patient as being a negative or unknown patient?](#why-to-crop-a-positive-patient-as-being-a-negative-or-unknown-patient)
 2. [Table of Contents](#table-of-contents)
 
