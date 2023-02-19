@@ -1,14 +1,6 @@
 import argparse
 
 from classes.patientCropC import patientCropC
-
-# try:
-#     from classes.patientCropC import patientCropC
-# except:
-#     try:
-#         from .classes.patientCropC import patientCropC
-#     except:
-#         print('wrong .classes.patientCropC path')
         
 class CROPro():
     
