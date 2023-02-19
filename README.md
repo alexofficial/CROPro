@@ -91,10 +91,11 @@ TW2 (left) -  ADC (middle) -  HBV (right)
 3. [Installation](#installation)
    - [Clone](#clone)
    - [Conda Enviroment](#conda-enviroment)
-   - [Download Example dataset](#download-example-dataset)
+  
 
 4. [Usage](#usage)
     - [Datasets](#dataset)
+      - [Download Example dataset](#download-example-dataset)
     - [CROPro Examples](#cropro-examples)
     - [How to run CROPro](#how-to-run-cropro)
       - Import CROPro class example
@@ -121,8 +122,7 @@ TW2 (left) -  ADC (middle) -  HBV (right)
 
 >Note: if you encounter any error you can manually download the necessary packages: see `requirements.txt`
 
-## **Download Example dataset**
-`$ bash download_dataset.sh`
+
 
 ## **Usage**
 
@@ -133,7 +133,8 @@ We have provided two patients from [PI-CAI challenge](https://pi-cai.grand-chall
 - `Positive`: 10117_1000117
 > Selection (above) is based on clinically significant prostate cancer (csPCa). Prostate gland masks (segmentation) and lesion masks are in the dataset folder.
 
-### **Dataset**
+## **Dataset**
+
 - Positive Patient: `10117_1000117` from PI-CAI challenge dataset. We have provided:
     - T2W image (`10117_1000117_T2WI.nii.gz`)
     - Mormalized T2W image (`10117_1000117_NormT2WI.nii.gz`), 
@@ -142,6 +143,9 @@ We have provided two patients from [PI-CAI challenge](https://pi-cai.grand-chall
     - Prostate masks (`10117_1000117_ProstateMask.nii.gz` / `AI-gland/10117_1000117.nii.gz`)
     - Lesions masks  (`AI_labels/10117_1000117.nii.gz` or `human_labels/10117_1000117.nii.gz`)
 - Negative patient: `10001_1000001` similar here, expect that there is no lesion.
+
+### **Download Example dataset**
+- `$ bash download_dataset.sh`
 
 ```
 📦dataset
