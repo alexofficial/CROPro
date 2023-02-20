@@ -2,7 +2,7 @@
 
 This repository provides the official implementation of `CROPro: A tool for automated cropping of prostate MR images`. 
 
-The official implementation was performed with T2-weighted images. However, in this repository we also implemented cropping biparametric MRI (biMRI) sequences such as T2-Weigted (T2W), Apparent diffusion coefficient (ADC) and high-b-value (HBV) Diffusion-weighted (DWI) MRI.
+The official implementation was performed with T2-weighted images. However, in this repository we also implemented cropping biparametric MRI (bpMRI) sequences such as T2-Weigted (T2W), Apparent diffusion coefficient (ADC) and high-b-value (HBV) Diffusion-weighted (DWI) MRI.
 
 ----
 
@@ -26,8 +26,8 @@ Below, we provide an example:
 
 ### **_Why to crop a positive patient as being a negative or unknown patient ?_**
 
- - In a scenario where the patient's health status (negative="healthy" or positive=malignant) is not given. The goal would be to crop and test all slices of a patient for which segmentations are available (e.g., AI or human segmentation) `since some of the slices may have lesions.`
- - In the case of a negative patient, the prostate segmentation mask is used. If no information is available about the patient, i.e., in the case of a patient with unknown health status, prostate segmentation is also used to crop all slices. This means that prostate segmentation is used for both negative and unknown patient's health status. Although both have the same function, in a real example the patient's health status is unknown. Therefore, it is important to separate the two so that the 'unknown' patient status can be distinguished from the 'negative' patient status. 
+ - In a scenario where the patient's health status (negative="healthy" or positive=malignant) is not given. In a test case scenario, i.e. a scenario where the patient’s health status is “unknown”, the goal would be to crop and test all slices of a patient for which segmentations are available (e.g., AI or human segmentation) `since some of the slices may have lesions.`
+ - In the case of a negative patient, the prostate segmentation mask is used. If no information is available about the patient, i.e., in the case of a patient with unknown health status, prostate segmentation is also used to crop all slices. This means that prostate segmentation is used for both negative and unknown patient's health status. Although both have the same function, in a test case scenario the patient's health status is unknown. Therefore, it is important to separate the two so that the 'unknown' patient status can be distinguished from the 'negative' patient status. 
 ----
 
 
@@ -131,7 +131,7 @@ TW2 (left) -  ADC (middle) -  HBV (right)
 
 To familiarize yourself with CROPro, we recommend that you take a look at the examples before starting your own data set.
 
-We have provided two patients from [PI-CAI challenge](https://pi-cai.grand-challenge.org/). The two selected patients:
+We have provided two patients from [PI-CAI challenge](https://pi-cai.grand-challenge.org/) - [PI-CAI - Study Protocol)](https://zenodo.org/record/6522364#.Y_NoTTpKj-g). The two selected patients:
 - `Negative`: 10001_1000001 
 - `Positive`: 10117_1000117
 > Selection (above) is based on clinically significant prostate cancer (csPCa). Prostate gland masks (segmentation) and lesion masks are in the dataset folder.
@@ -140,12 +140,17 @@ We have provided two patients from [PI-CAI challenge](https://pi-cai.grand-chall
 
 - Positive Patient: `10117_1000117` from PI-CAI challenge dataset. We have provided:
     - T2W image (`10117_1000117_T2WI.nii.gz`)
-    - Mormalized T2W image (`10117_1000117_NormT2WI.nii.gz`), 
+    - Normalized T2W image (`10117_1000117_NormT2WI.nii.gz`), 
     - Co-registered ADC (`10117_1000117_ADC.nii.gz`) 
     - Co-registered HBV (`10117_1000117_HBV.nii.gz`)
     - Prostate masks (`10117_1000117_ProstateMask.nii.gz` / `AI-gland/10117_1000117.nii.gz`)
     - Lesions masks  (`AI_labels/10117_1000117.nii.gz` or `human_labels/10117_1000117.nii.gz`)
-- Negative patient: `10001_1000001` similar here, expect that there is no lesion.
+- Negative patient: `10001_1000001` from PI-CAI challenge dataset. We have provided:  
+    - T2W image (`10001_1000001_T2WI.nii.gz`)
+    - Normalized T2W image (`10001_1000001_NormT2WI.nii.gz`), 
+    - Co-registered ADC (`10001_1000001_ADC.nii.gz`) 
+    - Co-registered HBV (`10001_1000001_HBV.nii.gz`) 
+    - Prostate masks (`10001_1000001_ProstateMask.nii.gz`)
 
 ### **Download Example dataset**
 - `$ bash download_dataset.sh`
