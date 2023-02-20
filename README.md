@@ -131,7 +131,7 @@ TW2 (left) -  ADC (middle) -  HBV (right)
 
 To familiarize yourself with CROPro, we recommend that you take a look at the examples before starting your own data set.
 
-We have provided two patients from [PI-CAI challenge](https://pi-cai.grand-challenge.org/) and [PI-CAI Study Protocol)](https://zenodo.org/record/6522364#.Y_NoTTpKj-g). The two selected patients:
+We have provided two patients from [PI-CAI challenge](https://pi-cai.grand-challenge.org/) and [PI-CAI Study Protocol](https://zenodo.org/record/6522364#.Y_NoTTpKj-g). The two selected patients:
 - `Negative`: 10001_1000001 
 - `Positive`: 10117_1000117
 > Selection (above) is based on clinically significant prostate cancer (csPCa). Prostate gland masks (segmentation) and lesion masks are in the dataset folder.
