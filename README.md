@@ -35,9 +35,9 @@ Below, we provide an example:
 <center>
 <span STYLE="font-size:20pt;">Examples</span>
 
-<span STYLE="font-size:12pt;color:SkyBlue">Negative</span>: a patient with non-significant prostate cancer (Gleason Grade <= 1)
+<span STYLE="font-size:12pt;color:SkyBlue">Negative</span>: a patient with non-significant prostate cancer (Gleason Grade Group <= 1)
 
-<span STYLE="font-size:12pt;color:Red">Positive</span> : a patient with clinically significant prostate cancer (Gleason Grade => 2)
+<span STYLE="font-size:12pt;color:Red">Positive</span> : a patient with clinically significant prostate cancer (Gleason Grade Group => 2)
 
 ----
 
