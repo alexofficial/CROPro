@@ -1,0 +1,20 @@
+attrs @ file:///croot/attrs_1668696182826/work
+certifi @ file:///croot/certifi_1671487769961/work/certifi
+contourpy==1.0.6
+cycler==0.11.0
+fonttools==4.38.0
+glob2==0.7
+iniconfig @ file:///home/linux1/recipes/ci/iniconfig_1610983019677/work
+kiwisolver==1.4.4
+matplotlib==3.6.2
+numpy==1.23.4
+opencv-python==4.6.0.66
+packaging @ file:///croot/packaging_1671697413597/work
+Pillow==9.3.0
+pluggy @ file:///tmp/build/80754af9/pluggy_1648042571233/work
+py @ file:///opt/conda/conda-bld/py_1644396412707/work
+pyparsing==3.0.9
+python-dateutil==2.8.2
+SimpleITK==2.2.0
+six==1.16.0
+tomli @ file:///opt/conda/conda-bld/tomli_1657175507142/work
