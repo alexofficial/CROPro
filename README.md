@@ -121,7 +121,7 @@ TW2 (left) -  ADC (middle) -  HBV (right)
 
 ### **Conda Enviroment**
 - `$ conda env create -f conda_env/cropro.yml`
-- `$ source activate cropro`
+- `$ conda activate cropro`
 
 >Note: if you encounter any error you can manually download the necessary packages: see `requirements.txt`
 
