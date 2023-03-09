@@ -4,7 +4,21 @@ This repository provides the official implementation of `CROPro: A tool for auto
 
 DOI: https://doi.org/10.1117/1.JMI.10.2.024004
 
-The official implementation was performed with T2-weighted images. However, in this repository we also implemented cropping biparametric MRI (bpMRI) sequences such as T2-Weigted (T2W), Apparent diffusion coefficient (ADC) and high-b-value (HBV) Diffusion-weighted (DWI) MRI.
+
+## **Abstract**:
+
+**Purpose**:
+    To bypass manual data preprocessing and optimize deep learning performance, we developed and evaluated CROPro, a tool to standardize automated cropping of prostate magnetic resonance (MR) images.
+
+**Approach**: CROPro enables automatic cropping of MR images regardless of patient health status, image size, prostate volume, or pixel spacing. CROPro can crop foreground pixels from a region of interest (e.g., prostate) with different image sizes, pixel spacing, and sampling strategies. Performance was evaluated in the context of clinically significant prostate cancer (csPCa) classification. Transfer learning was used to train five convolutional neural network (CNN) and five vision transformer (ViT) models using different combinations of cropped image sizes (*64 × 64*, *128 × 128*, and *256 × 256* pixels<sup>2</sup>), pixel spacing (*0.2 × 0.2*, *0.3 × 0.3*, *0.4 × 0.4*, and *0.5 × 0.5* *mm<sup>2</sup>* ), and sampling strategies (*center*, *random*, and *stride* cropping) over the prostate. T2-weighted MR images (*N* = 1475) from the online available PI-CAI challenge were used to train (*N* = 1033), validate (*N* = 221), and test (*N* = 221) all models.
+
+**Results**:
+Among CNNs, SqueezeNet with stride cropping (image size: *128 × 128*, pixel spacing: *0.2 × 0.2* *mm<sup>2</sup>* ) achieved the best classification performance (*0.678 ± 0.006*). Among ViTs, ViT-H/14 with random cropping (image size: *64 × 64* and pixel spacing: *0.5 × 0.5* *mm<sup>2</sup>* ) achieved the best performance (*0.756 ± 0.009*). Model performance depended on the cropped area, with optimal size generally larger with center cropping (*∼40 cm<sup>2</sup> *) than random/stride cropping (*∼10 cm<sup>2</sup>* ).
+
+**Conclusion**:
+We found that csPCa classification performance of CNNs and ViTs depends on the cropping settings. We demonstrated that CROPro is well suited to optimize these settings in a standardized manner, which could improve the overall performance of deep learning models.
+
+>*Note: The official implementation was performed with T2-weighted images. However, in this repository we also implemented cropping biparametric MRI (bpMRI) sequences such as T2-Weigted (T2W), Apparent diffusion coefficient (ADC) and high-b-value (HBV) Diffusion-weighted (DWI) MRI.*
 
 
 ----
