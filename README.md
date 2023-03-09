@@ -334,7 +334,19 @@ For `random` and `Center` crop method you can just change the --crop_method 'ran
 If you use this repository please cite the following publication:
 
 ```
-Patsanis, A., Sunoqrot, R.S.M., Bathen, T.F., Elschot, M.: Cropro: A tool for automated cropping of prostate mr images. Journal of Medical Imaging (2023) 
+@article{10.1117/1.JMI.10.2.024004,
+author = {Alexandros Patsanis and Mohammed R. S. Sunoqrot and Tone F. Bathen and Mattijs Elschot},
+title = {{CROPro: a tool for automated cropping of prostate magnetic resonance images}},
+volume = {10},
+journal = {Journal of Medical Imaging},
+number = {2},
+publisher = {SPIE},
+pages = {024004},
+keywords = {deep learning, image cropping, image processing, prostate cancer, magnetic resonance imaging, Prostate, Education and training, Magnetic resonance imaging, Image segmentation, Performance modeling, Deep learning, Magnetism, Image classification, Principal component analysis, Visual process modeling},
+year = {2023},
+doi = {10.1117/1.JMI.10.2.024004},
+URL = {https://doi.org/10.1117/1.JMI.10.2.024004}
+}
 ```
 
 
