@@ -2,7 +2,11 @@
 
 This repository provides the official implementation of `CROPro: A tool for automated cropping of prostate MR images`. 
 
+Link: https://doi.org/10.1117/1.JMI.10.2.024004
+
 The official implementation was performed with T2-weighted images. However, in this repository we also implemented cropping biparametric MRI (bpMRI) sequences such as T2-Weigted (T2W), Apparent diffusion coefficient (ADC) and high-b-value (HBV) Diffusion-weighted (DWI) MRI.
+
+
 
 ----
 
