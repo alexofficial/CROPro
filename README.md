@@ -2,11 +2,42 @@
 
 This repository provides the official implementation of `CROPro: A tool for automated cropping of prostate MR images`. 
 
-Link: https://doi.org/10.1117/1.JMI.10.2.024004
+DOI: https://doi.org/10.1117/1.JMI.10.2.024004
 
 The official implementation was performed with T2-weighted images. However, in this repository we also implemented cropping biparametric MRI (bpMRI) sequences such as T2-Weigted (T2W), Apparent diffusion coefficient (ADC) and high-b-value (HBV) Diffusion-weighted (DWI) MRI.
 
 
+----
+<!-- For more information about CROPro, please read the following paper: -->
+
+# **Table of Contents**
+1. [CROPro: A tool for automated cropping of prostate MR images](#cropro-a-tool-for-automated-cropping-of-prostate-mr-images)
+   - [Read Before use](#read-before-use)
+      - [What CROPro can do?](#what-cropro-can-do)
+      - [Why to crop only slices with tumor ?](#why-crop-only-slices-with-tumor)
+      - [Why to crop a positive patient as being a negative or unknown patient?](#why-to-crop-a-positive-patient-as-being-a-negative-or-unknown-patient)
+
+2. [Installation](#installation)
+   - [Clone](#clone)
+   - [Conda Enviroment](#conda-enviroment)
+  
+
+3. [Usage](#usage)
+    - [Datasets](#dataset)
+      - [Download Example dataset](#download-example-dataset)
+    - [CROPro Examples](#cropro-examples)
+    - [How to run CROPro](#how-to-run-cropro)
+      - Import CROPro class example
+          - [Negative case with Stride Cropping Technique](#negative-case-with-stride-cropping-technique)
+          - [Positive case with Stride Cropping Technique](#positive-case-with-stride-cropping-technique)
+      - [Run CROPro from Command Line](#run-cropro-from-command-line)
+        - [Negative Patient (healthy)](#negative-patient-healthy)
+        - [Positive Patient (csPCa)](#positive-patient-cspca)
+
+4. [Citation](#citation)
+
+
+</span>
 
 ----
 
@@ -84,38 +115,7 @@ TW2 (left) -  ADC (middle) -  HBV (right)
 </center>
 
 
-----
-<!-- For more information about CROPro, please read the following paper: -->
 
-# **Table of Contents**
-1. [CROPro: A tool for automated cropping of prostate MR images](#cropro-a-tool-for-automated-cropping-of-prostate-mr-images)
-   - [Read Before use](#read-before-use)
-      - [What CROPro can do?](#what-cropro-can-do)
-      - [Why to crop only slices with tumor ?](#why-crop-only-slices-with-tumor)
-      - [Why to crop a positive patient as being a negative or unknown patient?](#why-to-crop-a-positive-patient-as-being-a-negative-or-unknown-patient)
-2. [Table of Contents](#table-of-contents)
-
-3. [Installation](#installation)
-   - [Clone](#clone)
-   - [Conda Enviroment](#conda-enviroment)
-  
-
-4. [Usage](#usage)
-    - [Datasets](#dataset)
-      - [Download Example dataset](#download-example-dataset)
-    - [CROPro Examples](#cropro-examples)
-    - [How to run CROPro](#how-to-run-cropro)
-      - Import CROPro class example
-          - [Negative case with Stride Cropping Technique](#negative-case-with-stride-cropping-technique)
-          - [Positive case with Stride Cropping Technique](#positive-case-with-stride-cropping-technique)
-      - [Run CROPro from Command Line](#run-cropro-from-command-line)
-        - [Negative Patient (healthy)](#negative-patient-healthy)
-        - [Positive Patient (csPCa)](#positive-patient-cspca)
-
-5. [Citation](#citation)
-
-
-</span>
 
 
 
