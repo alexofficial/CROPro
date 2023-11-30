@@ -51,9 +51,10 @@ class positiveCenterC():
             if len(indices1[0]) == len(indices2[0]):
                
                 if self.caseHealthyBoolean:
-                    _, _imageNArray = self.load_itk(self.orig_img_path_t2w, self.slice_number)
+                    _imageNArray = self.load_resample_itk(self.orig_img_path_t2w, is_mask=True)
+                    _imageNArray = _imageNArray[self.slice_number]
                 else:
-                    _, _imageNArray = self.load_itk(self.orig_img_path_t2w, self.slice_number)
+                    _, _imageNArray = self.load_resample_itk(self.orig_img_path_t2w, is_mask=True)
                     
                 imga = _imageNArray[newBoundRect[1]:newBoundRect[1]+image_h, newBoundRect[0]:newBoundRect[0]+image_w]
 
@@ -68,8 +69,10 @@ class positiveCenterC():
                                
                 
                         elif self.arg.sequence_type=='bpMRI':
-                            _, _imageNArray_adc = self.load_itk(self.arg.orig_img_path_adc, self.slice_number)
-                            _, _imageNArray_hbv = self.load_itk(self.arg.orig_img_path_hbv, self.slice_number)
+                            _imageNArray_adc = self.load_resample_itk(self.arg.orig_img_path_adc, is_mask=False)
+                            _imageNArray_adc = _imageNArray_adc[self.slice_number]
+                            _imageNArray_hbv = self.load_resample_itk(self.arg.orig_img_path_hbv, is_mask=False)
+                            _imageNArray_hbv = _imageNArray_hbv[self.slice_number]
                             imga_adc = _imageNArray_adc[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
                             imga_hbv = _imageNArray_hbv[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
                             

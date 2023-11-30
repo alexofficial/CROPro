@@ -9,7 +9,7 @@ from .saveFilesC import saveFilesC
 class negativeCenterC():
     def __init__(self):
             super().__init__()
-            
+           
     def negativeCenter(self):   
         self.calculate_boundRect()    
         color = (rng.randint(0,256), rng.randint(0,256), rng.randint(0,256))
@@ -44,7 +44,8 @@ class negativeCenterC():
         indices2 = np.where(self.src_gray_blurred_whole_prostate >  0)
         
         if len(indices1[0]) == len(indices2[0]):
-            _, _imageNArray = self.load_itk(self.orig_img_path_t2w, self.slice_number)   
+            _imageNArray = self.load_resample_itk(self.orig_img_path_t2w, is_mask=False) 
+            _imageNArray = _imageNArray[self.slice_number]
             imga = _imageNArray[newBoundRect[1]:newBoundRect[1]+image_h, newBoundRect[0]:newBoundRect[0]+image_w]
 
             if not imga.size == 0:
@@ -56,8 +57,12 @@ class negativeCenterC():
                             pathToSave = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(self.i)+'_cord_'+str(y1)+'_'+str(x1)+'_T2W'
                             saveFilesC.saveFiles(self,pathToSave, imga)            
                     elif self.arg.sequence_type=='bpMRI':
-                        _, _imageNArray_adc = self.load_itk(self.arg.orig_img_path_adc, self.slice_number)
-                        _, _imageNArray_hbv = self.load_itk(self.arg.orig_img_path_hbv, self.slice_number)
+                        _imageNArray_adc = self.load_resample_itk(self.arg.orig_img_path_adc, self.slice_number)
+                        _imageNArray_adc = _imageNArray_adc[self.slice_number]
+                        
+                        _imageNArray_hbv = self.load_resample_itk(self.arg.orig_img_path_hbv, self.slice_number)
+                        _imageNArray_hbv = _imageNArray_hbv[self.slice_number]  
+                        
                         imga_adc = _imageNArray_adc[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
                         imga_hbv = _imageNArray_hbv[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
                         

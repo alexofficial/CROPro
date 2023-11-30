@@ -1,10 +1,9 @@
 import argparse
 
 from classes.patientCropC import patientCropC
-        
+
 class CROPro():
     
-
     def __init__(self, crop_method=None,orig_img_path_t2w=None, orig_img_path_adc=None,orig_img_path_hbv=None,seg_img_path=None,seg_img_path_lesion=None, do_normalization=None, prostate_gland_seg_contains_lesion=None,tumor_label_level=None,patient_status=None,pixel_spacing=None,crop_image_size=None,sample_number=None,normalized_image=None,saved_image_type=None,normalized_vmaxNumber=None, crop_stride=None,sequence_type=None,path_to_save=None, normalize_max_value_adc=None, min_percentile=None, max_percentile=None, c_min_positive=None,c_min_negative=None, percentage_of_allowed_overlapping_betweeing_gland_lesions_mask=None, number_of_slices_to_exclude_from_mask_gland=None, keep_all_slice=None):
 
         self.parser = argparse.ArgumentParser()
@@ -26,7 +25,7 @@ class CROPro():
         self.parser.add_argument('--normalized_vmaxNumber', type=int, default=242)
         self.parser.add_argument('--do_normalization', type=bool, default=False) # normalization of all sequence based on min-max percentile
         self.parser.add_argument('--min_percentile', type=int, default=0)
-        self.parser.add_argument('--max_percentile', type=int, default=95)
+        self.parser.add_argument('--max_percentile', type=int, default=99.5)
         self.parser.add_argument('--saved_image_type', type=str, default='tiff', choices=['nmp', 'jpg', 'tiff']) # add more if needed
         self.parser.add_argument('--path_to_save', type=str, default='save_crop/')
         self.parser.add_argument('--c_min_positive', type=int, default=0.2) 
@@ -35,7 +34,6 @@ class CROPro():
         self.parser.add_argument('--number_of_slices_to_exclude_from_mask_gland', default=1)     
         self.parser.add_argument('--keep_all_slice', type=bool, default=True)  
            
-
         self.namespace = self.parser.parse_args()
         
         if crop_method is not None: self.namespace.crop_method = crop_method

@@ -37,9 +37,12 @@ class negativeStrideC():
             nr_stride_steps_i = nr_strides_i-strides_per_size+1
             nr_stride_steps_j = nr_strides_j-strides_per_size+1
 
-            _, _imageNArray = self.load_itk(self.orig_img_path_t2w, self.slice_number)
-
-            _, original_draw = self.load_itk(self.orig_img_path_t2w, self.slice_number)
+            _imageNArray = self.load_resample_itk(self.orig_img_path_t2w, is_mask=False)
+            _imageNArray = _imageNArray[self.slice_number]
+            
+            original_draw = self.load_resample_itk(self.orig_img_path_t2w,is_mask=False)
+            original_draw = original_draw[self.slice_number]
+            
             x1 = int(center_i-(full_range_i/2))
             x2 = int(center_i+(full_range_i/2))
             y1 = int(center_j-(full_range_j/2))
@@ -48,9 +51,12 @@ class negativeStrideC():
             crop_tmp_img = _imageNArray[x1:x2,y1:y2]
             
             if self.arg.sequence_type=='bpMRI':
-                _, _imageNArray_adc = self.load_itk(self.arg.orig_img_path_adc, self.slice_number)
+                _imageNArray_adc = self.load_resample_itk(self.arg.orig_img_path_adc, is_mask=False)
+                _imageNArray_adc = _imageNArray_adc[self.slice_number]
                 crop_tmp_img_adc = _imageNArray_adc[x1:x2,y1:y2]
-                _, _imageNArray_hbv = self.load_itk(self.arg.orig_img_path_hbv, self.slice_number)
+                
+                _imageNArray_hbv = self.load_resample_itk(self.arg.orig_img_path_hbv, is_mask=False)
+                _imageNArray_hbv = _imageNArray_hbv[self.slice_number]
                 crop_tmp_img_hbv = _imageNArray_hbv[x1:x2,y1:y2]
                
             count = 0

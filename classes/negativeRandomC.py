@@ -16,8 +16,8 @@ class negativeRandomC():
         indices = np.where(self.prostate_gland_arr_slice)
         zippedCoordinates = list(zip(indices[1], indices[0]))
         sample_size = self.sample_size_calculation(self.number_of_voxel)
-        _, _imageNArray = self.load_itk(self.orig_img_path_t2w, self.slice_number)
-        
+        _imageNArray = self.load_resample_itk(self.orig_img_path_t2w, is_mask=False)
+        _imageNArray = _imageNArray[self.slice_number]
         for i in range(sample_size):
             randomC = rng.choice(zippedCoordinates)
             pointCenter = (randomC[0] , randomC[1])
@@ -39,8 +39,12 @@ class negativeRandomC():
                         saveFilesC.saveFiles(self,pathToSave, imga)  
                                   
                 elif self.arg.sequence_type=='bpMRI':
-                     _, _imageNArray_adc = self.load_itk(self.arg.orig_img_path_adc, self.slice_number)
-                     _, _imageNArray_hbv = self.load_itk(self.arg.orig_img_path_hbv, self.slice_number)
+                     _imageNArray_adc = self.load_resample_itk(self.arg.orig_img_path_adc, self.slice_number)
+                     _imageNArray_adc = _imageNArray_adc[self.slice_number]
+                     
+                     _imageNArray_hbv = self.load_resample_itk(self.arg.orig_img_path_hbv, self.slice_number)
+                     _imageNArray_hbv = _imageNArray_hbv[self.slice_number]
+                     
                      imga_adc = _imageNArray_adc[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
                      imga_hbv = _imageNArray_hbv[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
                      

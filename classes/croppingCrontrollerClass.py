@@ -19,8 +19,7 @@ class croppingCrontrollerClass():
     
     Methods
     -------
-    load_itk_segmented(self, filename)
-    load_itk(self, filename, slice_number)
+    load_resample_itk(self, filename, is_mask))
     sample_size_calculation(self,number_of_voxel)
     cropTechniqueControler(self)
     crop_and_save(self, orig_img_path_t2w, slice_number_correct, slice_name, name_file, pathToSave_same_as_dataset_structure , prostate_gland_arr_slice, prostate_lesion_arr_slice,patient_name, caseHealthyBoolean, seg_path=None):
@@ -40,116 +39,53 @@ class croppingCrontrollerClass():
             self.contours_poly[self.i] = cv2.approxPolyDP(self.curve_contours, epsilon, closed)
             # boundingRect: aims to daw an approximate rectangle around the binary image.
             self.boundRect[self.i] = cv2.boundingRect(self.contours_poly[self.i])
-            
-    def load_itk_segmented(self,filename):
+    
+    def load_resample_itk(self,filename, is_mask=False):
         """
-        This fuction is used to load a 3D segmentation (prostate gland/lesions)
-        and resample with a new pixel spacing by adjusting the final pixel size 
-        of the object.
+        This fuction is used to load a 3D itk image or segmentation(prostate gland/lesions)
+        and resample with a new pixel spacing
 
         Parameters
         ----------
         filename : str
             The filename is the path to the segmentation.
+        is_mask = Boolean
+            If the file is segmentation or normal 3D image
     
         Returns
         -------
-        resampled_3D_ITK
-            The new resampled ITK images
-        
-        resampled_3D_object_array
+
+        GetArrayFromImage
             The resampled images (array) for each slice
 
         """
-        itkimage = sitk.ReadImage(filename)
-        reader = sitk.ImageFileReader()
-        reader.SetFileName(filename)
-        reader.LoadPrivateTagsOn()
+        itk_image = sitk.ReadImage(filename)
+        original_spacing = itk_image.GetSpacing()
+        original_size = itk_image.GetSize()
+        out_spacing = [self.arg.pixel_spacing, self.arg.pixel_spacing, original_spacing[2]]
 
-        reader.ReadImageInformation()
-        for k in reader.GetMetaDataKeys():
-            v = reader.GetMetaData(k)
-            
-        OriginalPixelSpacing = itkimage.GetSpacing()
-        orig_size = np.array(itkimage[:,:,0].GetSize(), dtype=np.int)
-        NewPixelSpacing = (self.arg.pixel_spacing, self.arg.pixel_spacing, OriginalPixelSpacing[2])
+        out_size = [
+            int(np.round(original_size[0] * (original_spacing[0] / out_spacing[0]))),
+            int(np.round(original_size[1] * (original_spacing[1] / out_spacing[1]))),
+            int(np.round(original_size[2] * (original_spacing[2] / original_spacing[2])))
+            ]
 
-        orig_spacing = itkimage.GetSpacing()
-        
-        spacing_step1 =  np.divide(orig_spacing[0],NewPixelSpacing[0])
-        new_size = np.array(orig_size)*(round(spacing_step1,3))
-
-        length_slices = itkimage.GetDepth()
-        resampled_3D_object_array = np.zeros(shape=(length_slices, int(round(new_size[0])), int(round(new_size[1]))), dtype='uint8')
-
-        for slice_number in range(length_slices):
-            resample = sitk.ResampleImageFilter()
-            resample.SetInterpolator(sitk.sitkNearestNeighbor)
-            origin = itkimage[:,:,slice_number].GetOrigin()
-            resample.SetOutputOrigin(origin)
-            NewPixelSpacing = (self.arg.pixel_spacing,self.arg.pixel_spacing,OriginalPixelSpacing[2])
-            resample.SetOutputSpacing(NewPixelSpacing)
-            spacing =  np.divide(OriginalPixelSpacing[0],NewPixelSpacing[0])
-            new_size = np.array(orig_size)*(round(spacing,3))
-            new_size[0] = round(new_size[0])
-            new_size[1] = round(new_size[1])
-            new_size = np.ceil(new_size).astype(np.int) #  Image dimensions are in integers
-            new_size = [int(s) for s in new_size]
-            resample.SetSize(new_size)
-            resampled_3D_ITK = resample.Execute(itkimage[:,:,slice_number])
-            imageArrayNew = sitk.GetArrayFromImage(resampled_3D_ITK)
-            resampled_3D_object_array[slice_number] = np.array(imageArrayNew)
-        return resampled_3D_ITK, resampled_3D_object_array
-    
-    def load_itk(self, filename, slice_number):
-        
-        """
-        This fuction is used to load a slice from the 3D DICOM Objects
-        and resample with a new pixel spacing by adjusting the final pixel size 
-        of the object.
-
-        Parameters
-        ----------
-        filename : str
-            The filename is the path to the segmentation.
-    
-        Returns
-        -------
-        resampled_3D_ITK
-            The new resampled ITK images
-        
-        resampled_3D_object_array
-            The resampled images (array) for each slice
-
-        """
-        
-        slice_number_array = slice_number -1
-        itkimage = sitk.ReadImage(filename)
-        
-        readerSitk = sitk.ImageFileReader()
-        readerSitk.SetFileName(filename)
-        readerSitk.LoadPrivateTagsOn()
-        
-        orig_size = np.array(itkimage[:,:,slice_number_array].GetSize(), dtype=np.int)
-        OriginalPixelSpacing = itkimage.GetSpacing()
-        
         resample = sitk.ResampleImageFilter()
-        resample.SetInterpolator(sitk.sitkBSpline)
-        origin = itkimage[:,:,slice_number_array].GetOrigin()
-        resample.SetOutputOrigin(origin)
-        
-        NewPixelSpacing = (self.arg.pixel_spacing,self.arg.pixel_spacing,OriginalPixelSpacing[2])
-        resample.SetOutputSpacing(NewPixelSpacing)
-        spacing =  np.divide(OriginalPixelSpacing[0],NewPixelSpacing[0])
-        new_size = np.array(orig_size)*(spacing)
-        new_size = np.ceil(new_size).astype(np.int)
-        new_size = [int(s) for s in new_size]
-        resample.SetSize(new_size)
-        
-        resampled_3D_ITK = resample.Execute(itkimage[:,:,slice_number_array])
-        resampled_3D_object_array = sitk.GetArrayFromImage(resampled_3D_ITK)
-        return resampled_3D_ITK, resampled_3D_object_array
-    
+        resample.SetOutputSpacing(out_spacing)
+        resample.SetSize(out_size)
+        resample.SetOutputDirection(itk_image.GetDirection())
+        resample.SetOutputOrigin(itk_image.GetOrigin())
+        resample.SetTransform(sitk.Transform())
+        resample.SetDefaultPixelValue(itk_image.GetPixelIDValue())
+
+        if is_mask:
+            resample.SetInterpolator(sitk.sitkNearestNeighbor)
+        else:
+            resample.SetInterpolator(sitk.sitkBSpline)
+        resampled_sitk_img = resample.Execute(itk_image) 
+        return sitk.GetArrayFromImage(resampled_sitk_img)   
+  
+            
     def sample_size_calculation(self,number_of_voxel):
         """
         This fuction is used to calculate the size of random selected images to be cropped. This is when the random

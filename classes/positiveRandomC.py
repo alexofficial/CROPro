@@ -27,8 +27,9 @@ class positiveRandomC():
                 number_of_voxels_whole_prostate_segmentation = np.where(self.prostate_gland_arr_slice)
                 sample_size = self.sample_size_calculation(number_of_voxels_whole_prostate_segmentation[0].size)                   
                                 
-                _, _imageNArray = self.load_itk(self.orig_img_path_t2w, slice_number=self.slice_number)
-
+                _imageNArray = self.load_resample_itk(self.orig_img_path_t2w, is_mask=False)
+                _imageNArray = _imageNArray[self.slice_number]
+                
                 for i in range(sample_size):
                     randomC = rng.choice(zippedCoordinates_prostate)
                     cropped_tumour_area_voxel_size = 0
@@ -61,7 +62,9 @@ class positiveRandomC():
                     cv2.rectangle(drawing, (x1, y1), (x2, y2), (255,255,255), 4)
                     segmentation = segmentation + self.src_gray_blurred_whole_prostate
                 
-                    _, _imageNArrayNew = self.load_itk(self.orig_img_path_t2w, self.slice_number)
+                    _imageNArrayNew = self.load_resample_itk(self.orig_img_path_t2w,is_mask=False)
+                    _imageNArrayNew = _imageNArrayNew[self.slice_number]
+                    
                     imgaNew = _imageNArrayNew[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
                     
                     if not imgaNew.size == 0:
@@ -71,8 +74,10 @@ class positiveRandomC():
                                 saveFilesC.saveFiles(self,pathToSave, imgaNew)   
             
                         elif self.arg.sequence_type=='bpMRI':
-                            _, _imageNArray_adc = self.load_itk(self.arg.orig_img_path_adc, self.slice_number)
-                            _, _imageNArray_hbv = self.load_itk(self.arg.orig_img_path_hbv, self.slice_number)
+                            _imageNArray_adc = self.load_resample_itk(self.arg.orig_img_path_adc, is_mask=False)
+                            _imageNArray_adc = _imageNArray_adc[self.slice_number]
+                            _imageNArray_hbv = self.load_resample_itk(self.arg.orig_img_path_hbv, is_mask=False)
+                            _imageNArray_hbv = _imageNArray_hbv[self.slice_number]
                             imga_adc = _imageNArray_adc[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
                             imga_hbv = _imageNArray_hbv[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
                             pathToSave_T2W = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(i)+'_cord_'+str(y1)+'_'+str(x1)+'_T2W'

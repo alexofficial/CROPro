@@ -27,8 +27,11 @@ class positiveStrideC():
             
             if not len(zippedCoordinates_prostate)==0 and not len(zippedCoordinates_indices_tumor)==0:                   
                     
-                    _, _imageNArray = self.load_itk(self.orig_img_path_t2w, slice_number=self.slice_number)
-                    _, original_draw = self.load_itk(self.orig_img_path_t2w, self.slice_number)
+                    _imageNArray = self.load_resample_itk(self.orig_img_path_t2w, is_mask=False)
+                    _imageNArray = _imageNArray[self.slice_number]
+                    
+                    original_draw = self.load_resample_itk(self.orig_img_path_t2w, self.slice_number)
+                    original_draw = original_draw[self.slice_number]
                     
                     # argmin will return the indices of the minimum values along the axis
                     indicesLeft = self.biggestAreaContour[:, :, 0].argmin()
@@ -75,10 +78,12 @@ class positiveStrideC():
                     crop_tmp_img = _imageNArray[x1:x2,y1:y2]
                     
                     if self.arg.sequence_type=='bpMRI':
-                        _, _imageNArray_adc = self.load_itk(self.arg.orig_img_path_adc, self.slice_number)
-                        _, _imageNArray_hbv = self.load_itk(self.arg.orig_img_path_hbv, self.slice_number)
-                        imga_adc = _imageNArray_adc[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
-                        imga_hbv = _imageNArray_hbv[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
+                        _imageNArray_adc = self.load_resample_itk(self.arg.orig_img_path_adc, is_mask=False)
+                        _imageNArray_adc = _imageNArray_adc[self.slice_number]
+                        _imageNArray_hbv = self.load_resample_itk(self.arg.orig_img_path_hbv, is_mask=False)
+                        _imageNArray_hbv = _imageNArray_hbv[self.slice_number]
+                        # imga_adc = _imageNArray_adc[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
+                        # imga_hbv = _imageNArray_hbv[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
                         crop_tmp_img_adc = _imageNArray_adc[x1:x2,y1:y2]
                         crop_tmp_img_hbv = _imageNArray_hbv[x1:x2,y1:y2]
 

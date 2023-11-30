@@ -72,8 +72,8 @@ class patientCropC(croppingCrontrollerClass):
         patient_id = self.arg.orig_img_path_t2w.split("/")[-1].rsplit('.')[0].rsplit('_')[0] 
         study_id = self.arg.orig_img_path_t2w.split("/")[-1].rsplit('.')[0].rsplit('_')[1] 
         
+        prostate_gland_arr = self.samplingTechniqueC.load_resample_itk(os.path.join(current_path,self.arg.seg_img_path), is_mask=True)
         
-        _img_itk, prostate_gland_arr = self.samplingTechniqueC.load_itk_segmented(os.path.join(current_path,self.arg.seg_img_path))
         length_slices_gland_prostate = len(prostate_gland_arr)
         
         if self.arg.patient_status=='negative' or self.arg.patient_status=='unknown':
@@ -82,7 +82,7 @@ class patientCropC(croppingCrontrollerClass):
         
         elif self.arg.patient_status=='positive':
             caseHealthyBoolean = False
-            _img_itk, prostate_lesion_arr = self.samplingTechniqueC.load_itk_segmented(os.path.join(current_path,self.arg.seg_img_path_lesion))
+            prostate_lesion_arr = self.samplingTechniqueC.load_resample_itk(os.path.join(current_path,self.arg.seg_img_path_lesion), is_mask=True)
             
             length_slices_lesion = len(prostate_lesion_arr)
             if length_slices_gland_prostate==length_slices_lesion:
