@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import configparser
 from typing import Tuple
+import SimpleITK as sitk
 
 class saveFilesC():
     """
@@ -119,7 +120,7 @@ class saveFilesC():
             # extract and set the HBV scan type value
             self.HBV = config.get('config', 'HBV')
         
-        def do_normalization_method(image_array: np.ndarray, min_percentile: float, max_percentile: float) -> Tuple[float, float]:
+        def do_normalization_method(self,image_array: np.ndarray, min_percentile: float, max_percentile: float, path_to_file: str) -> Tuple[float, float]:
             """
             Normalize the image based on minimum and maximum percentile values.
 
@@ -139,15 +140,36 @@ class saveFilesC():
             max_val : float
                 Maximum value of the normalized image.
             """
-            maxI = np.max(image_array)
-            minI = np.min(image_array)
-            minVal= np.percentile([minI,maxI], min_percentile)
-            maxVal = np.percentile([minI,maxI], max_percentile)
+            
+            normalization_over_3D_dicom = True
+            if normalization_over_3D_dicom:
+                # Load the DICOM image
+                image = sitk.ReadImage(path_to_file)
+                image_array = sitk.GetArrayFromImage(image)
+                minVal = 0
+                maxVal = np.percentile(image_array, max_percentile)
+    
             return minVal, maxVal
-            # min_val, max_val = np.percentile(image_array, [min_percentile, max_percentile])
-            # return min_val, max_val
-           
 
+
+        # def do_normalization_over_the_3D_plane(image_array: np.ndarray, min_percentile: float, max_percentile: float) -> Tuple[float, float]:
+        #     # input 3D Dicom image 
+        #     dicom_3D_image = '' 
+        #     # Loop over all slices and find the maxI and minI
+        #     maxI_final = 0
+        #     minI_final = 999999
+        #     for i in range(len(dicom_3D_image)): 
+        #         maxI = np.max(image_array)
+        #         minI = np.min(image_array)
+        #         if maxI > maxI_final:
+        #             maxI_final = maxI
+        #         if minI < minI_final:
+        #             minI_final = minI
+    
+        #     minVal = np.percentile([minI,maxI], min_percentile)
+        #     maxVal = np.percentile([minI,maxI], max_percentile)
+        #     return minVal, maxVal
+        
         def saveImage(pathToSave: str, image_array: np.ndarray, vmin: float, vmax: float, saved_image_type: str) -> None:
             """
             Saves either a normal image file or a numpy file.
@@ -172,6 +194,7 @@ class saveFilesC():
                     print ("Error", exp) 
             else:
                 try:
+                    # import pdb;pdb.set_trace()
                     plt.imsave(pathToSave, image_array, cmap=cm.gray, vmin=vmin, vmax=vmax)
                 except ValueError as exp:
                     print ("Error", exp) 
@@ -184,22 +207,22 @@ class saveFilesC():
                 saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=0, vmax=self.normalized_vmaxNumber, saved_image_type=self.saved_image_type)
             else:
                 if self.do_normalization:   
-                    minVal, maxVal = do_normalization_method(image_array, self.min_percentile, self.max_percentile)
+                    minVal, maxVal = do_normalization_method(self,image_array, self.min_percentile, self.max_percentile, self.orig_img_path_t2w)
                     saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=minVal, vmax=maxVal, saved_image_type=self.saved_image_type)
                 else:
                     saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=None, vmax=None, saved_image_type=self.saved_image_type)
                 
         elif self.ADC in pathToSave:
-           minVal, maxVal = do_normalization_method(image_array, self.min_percentile, self.max_percentile)
+           minVal, maxVal = do_normalization_method(self,image_array, self.min_percentile, self.max_percentile, self.arg.orig_img_path_adc)
            saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=minVal, vmax=maxVal, saved_image_type=self.saved_image_type)
             
             
         elif self.HBV in pathToSave:
-            minVal, maxVal = do_normalization_method(image_array, self.min_percentile, self.max_percentile)
+            minVal, maxVal = do_normalization_method(self,image_array, self.min_percentile, self.max_percentile, self.arg.orig_img_path_hbv)
             saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=minVal, vmax=maxVal, saved_image_type=self.saved_image_type)
 
         else:
-            print('The path needs to contain thw word ADC, T2W or HBV: See config.ini')
+            print('The path needs to contain the word ADC, T2W or HBV: See config.ini')
           
 
         
