@@ -9,7 +9,7 @@ import matplotlib.cm as cm
 import configparser
 from typing import Tuple
 import SimpleITK as sitk
-
+import pathlib
 class saveFilesC():
     """
     A class to save image files in a specific format.
@@ -71,26 +71,10 @@ class saveFilesC():
         self.saved_image_type = self.arg.saved_image_type
         self.normalized_vmaxNumber = self.arg.normalized_vmaxNumber 
         self.normalized_image = self.arg.normalized_image 
-        
-    def saveFiles(self, pathToSave: str, image_array: np.ndarray) -> None:
-        """
-        The function will save either a normal type images, such as jpeg, png, tiff or it will save a numpy image.
 
-        Parameters
-        ----------
-        pathToSave : str
-            The path to save the image.
-        image_array : numpy.ndarray
-            The image array.
+    def save_image_types(self,slice_name,  final_x1, final_y1, t2w_sub_img, ADC_sub_img, HBV_sub_img, count=None):
 
-        Raises
-        ------
-        ValueError
-            If the input `image_array` is not a numpy array.
-
-        """
-        
-        def set_config_file(self):
+        def set_config_file():
             """
             Reads configuration values from a config file and sets instance attributes for later use in the class.
 
@@ -120,7 +104,7 @@ class saveFilesC():
             # extract and set the HBV scan type value
             self.HBV = config.get('config', 'HBV')
         
-        def do_normalization_method(self,image_array: np.ndarray, min_percentile: float, max_percentile: float, path_to_file: str) -> Tuple[float, float]:
+        def do_normalization_method(image_array: np.ndarray, min_percentile: float, max_percentile: float, path_to_file: str) -> Tuple[float, float]:
             """
             Normalize the image based on minimum and maximum percentile values.
 
@@ -148,7 +132,7 @@ class saveFilesC():
                 image_array = sitk.GetArrayFromImage(image)
                 minVal = 0
                 maxVal = np.percentile(image_array, max_percentile)
-    
+
             return minVal, maxVal
 
 
@@ -165,12 +149,12 @@ class saveFilesC():
         #             maxI_final = maxI
         #         if minI < minI_final:
         #             minI_final = minI
-    
+
         #     minVal = np.percentile([minI,maxI], min_percentile)
         #     maxVal = np.percentile([minI,maxI], max_percentile)
         #     return minVal, maxVal
         
-        def saveImage(pathToSave: str, image_array: np.ndarray, vmin: float, vmax: float, saved_image_type: str) -> None:
+        def saveImage(pathToSave: pathlib.Path, image_array: np.ndarray, vmin: float, vmax: float, saved_image_type: str) -> None:
             """
             Saves either a normal image file or a numpy file.
 
@@ -194,38 +178,78 @@ class saveFilesC():
                     print ("Error", exp) 
             else:
                 try:
-                    # import pdb;pdb.set_trace()
-                    plt.imsave(pathToSave, image_array, cmap=cm.gray, vmin=vmin, vmax=vmax)
+                    if pathToSave.parent.exists():
+                        plt.imsave(pathToSave, image_array, cmap=cm.gray, vmin=vmin, vmax=vmax)
+                    else:
+                        pathToSave.parent.mkdir(parents=True)
+                        plt.imsave(pathToSave, image_array, cmap=cm.gray, vmin=vmin, vmax=vmax)
                 except ValueError as exp:
                     print ("Error", exp) 
 
-        set_config_file(self)
-        finalpathToSave= pathToSave+'.'+str(self.saved_image_type)
-        
-        if self.T2W in pathToSave:
-            if self.normalized_image:
-                saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=0, vmax=self.normalized_vmaxNumber, saved_image_type=self.saved_image_type)
-            else:
-                if self.do_normalization:   
-                    minVal, maxVal = do_normalization_method(self,image_array, self.min_percentile, self.max_percentile, self.orig_img_path_t2w)
-                    saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=minVal, vmax=maxVal, saved_image_type=self.saved_image_type)
+        def saveFiles(pathToSave: pathlib.Path, image_array: np.array):
+            """
+            The function will save either a normal type images, such as jpeg, png, tiff or it will save a numpy image.
+
+            Parameters
+            ----------
+            pathToSave : str
+                The path to save the image.
+            image_array : numpy.ndarray
+                The image array.
+
+            Raises
+            ------
+            ValueError
+                If the input `image_array` is not a numpy array.
+
+            """
+            set_config_file()
+            finalpathToSave= pathToSave.with_suffix('.'+self.saved_image_type)
+            
+            if self.T2W in str(pathToSave):
+                if self.normalized_image:
+                    saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=0, vmax=self.normalized_vmaxNumber, saved_image_type=self.saved_image_type)
                 else:
-                    saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=None, vmax=None, saved_image_type=self.saved_image_type)
+                    if self.do_normalization:   
+                        minVal, maxVal = do_normalization_method(image_array, self.min_percentile, self.max_percentile, self.orig_img_path_t2w)
+                        saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=minVal, vmax=maxVal, saved_image_type=self.saved_image_type)
+                    else:
+                        saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=None, vmax=None, saved_image_type=self.saved_image_type)
+                    
+            elif self.ADC in str(pathToSave):
+                minVal, maxVal = do_normalization_method(image_array, self.min_percentile, self.max_percentile, self.arg.orig_img_path_adc)
+                saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=minVal, vmax=maxVal, saved_image_type=self.saved_image_type)
                 
-        elif self.ADC in pathToSave:
-           minVal, maxVal = do_normalization_method(self,image_array, self.min_percentile, self.max_percentile, self.arg.orig_img_path_adc)
-           saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=minVal, vmax=maxVal, saved_image_type=self.saved_image_type)
-            
-            
-        elif self.HBV in pathToSave:
-            minVal, maxVal = do_normalization_method(self,image_array, self.min_percentile, self.max_percentile, self.arg.orig_img_path_hbv)
-            saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=minVal, vmax=maxVal, saved_image_type=self.saved_image_type)
+                
+            elif self.HBV in str(pathToSave):
+                minVal, maxVal = do_normalization_method(image_array, self.min_percentile, self.max_percentile, self.arg.orig_img_path_hbv)
+                saveImage(pathToSave=finalpathToSave,image_array=image_array, vmin=minVal, vmax=maxVal, saved_image_type=self.saved_image_type)
 
+            else:
+                print('The path needs to contain the word ADC, T2W or HBV: See config.ini')
+
+        if count==None:
+            file_name = f"{self.slice_name}_cord_{final_x1}_{final_y1}"
         else:
-            print('The path needs to contain the word ADC, T2W or HBV: See config.ini')
-          
+            file_name = f"{self.slice_name}_{count}_cord_{final_x1}_{final_y1}"
+            
+        file_name_T2W = f"{file_name}_T2W"
+        pathToSave_T2W = self.pathToSave_same_as_dataset_structure.joinpath(file_name_T2W)
+        saveFiles(pathToSave_T2W, t2w_sub_img)
 
-        
+        file_name_ADC = f"{file_name}_ADC"
+        pathToSave_ADC = self.pathToSave_same_as_dataset_structure.joinpath(file_name_ADC)
+        saveFiles(pathToSave_ADC, ADC_sub_img)
+
+        file_name_HBV = f"{file_name}_HBV"
+        pathToSave_HBV = self.pathToSave_same_as_dataset_structure.joinpath(file_name_HBV)
+        saveFiles(pathToSave_HBV, HBV_sub_img)
+
+    
+
+    
+            
+   
     
 
   

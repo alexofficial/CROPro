@@ -1,13 +1,18 @@
-# POSITIVE CASE
 import os
+import pathlib
+current_path = pathlib.Path(__file__).parent
+
 from main import CROPro
 
 ####### CROPRO settings #######
+patient_case_id = '10117_1000117'
+
+####### CROPRO settings #######
 sequence_type = 'bpMRI'  # bpMRI or T2W 
-crop_method = 'stride' # Crop Method, here we can choose between "stride", "random" and "center".
+crop_method = 'center' # Crop Method, here we can choose between "stride", "random" and "center".
 patient_status = 'positive'  # Patients health status, here we can choose between "negative", "positive" and "unknown".
-pixel_spacing = 0.4 # Resample the original image to a specific pixel spacing.
-crop_image_size = 128 # Crop image patches of different sizes, 64x64, 128x128, 256x256, and so on.
+pixel_spacing = 0.5 # Resample the original image to a specific pixel spacing.
+crop_image_size = 300 # Crop image patches of different sizes, 64x64, 128x128, 256x256, and so on.
 crop_stride = 32  # The crop stride number is a factor when using the stride-crop technique, which allows you to stride over the prostate gland. 
 normalized_image = True # The original implementation uses only normalized T2W images (using AutoRef), which means that do_normalization=False and save the images using normalized_vmaxNumber = 242 (See main.py)
 normalized_vmaxNumber = 242 # if normalized_image is true and the correct range to be saved.
@@ -32,15 +37,18 @@ number_of_slices_to_exclude_from_mask_gland = 1
 saved_image_type = "png" # choose your desireble format for the croped patches to be saved
 
 ####### PATHS #######
-orig_img_path_t2w = 'dataset/PI-CAI/positive/10117_1000117/10117_1000117_NormT2WI.nii.gz'
-orig_img_path_adc = 'dataset/PI-CAI/positive/10117_1000117/10117_1000117_ADC.nii.gz'
-orig_img_path_hbv = 'dataset/PI-CAI/positive/10117_1000117/10117_1000117_HBV.nii.gz'
-seg_img_path_gland = 'dataset/PI-CAI/segmentation/AI-gland/10117_1000117.nii.gz' # path to the segmentation image - AI labels
-seg_img_path_lesion = 'dataset/PI-CAI/segmentation/AI_labels/10117_1000117.nii.gz' # path to the segmentation image - AI labels
-# seg_img_path = 'dataset/PI-CAI/segmentation/human_labels/10117_1000117.nii.gz' # path to the segmentation image -  Human labels
-patient_case_id = orig_img_path_t2w.rsplit('/')[3]
-path_to_save = os.path.join(os.getcwd(), 'dataset', 'cropro','PICAI', 'PICAI_'+ str(crop_method) \
-    +'_'+ str(pixel_spacing) +'_'+ str(crop_image_size) +'_'+ str(patient_status), str(patient_case_id) ) # path to be saved
+orig_img_path_t2w =  current_path.joinpath('dataset','PI-CAI', patient_status,patient_case_id, f'{patient_case_id}_NormT2WI.nii.gz') # path to the original T2w image
+
+orig_img_path_adc =  current_path.joinpath('dataset','PI-CAI', patient_status,patient_case_id, f'{patient_case_id}_ADC.nii.gz') # path to the original ADC image
+
+orig_img_path_hbv =  current_path.joinpath('dataset','PI-CAI', patient_status,patient_case_id, f'{patient_case_id}_HBV.nii.gz') # path to the original HBV image
+
+seg_img_path_gland =  current_path.joinpath('dataset','PI-CAI', patient_status,patient_case_id, f'{patient_case_id}_ProstateMask.nii.gz') # Prostate segmentation MASK
+
+seg_img_path_lesion = current_path.joinpath('dataset','PI-CAI','segmentation', 'human_labels', f'{patient_case_id}.nii.gz') # path to the segmentation image - # path to the segmentation image -  Human labels
+
+name = f"PICAI_{crop_method}_{pixel_spacing}_{crop_image_size}_{patient_status}_{patient_case_id}"
+path_to_save = current_path.joinpath('dataset', 'cropro','PICAI', name )# path to be saved
 
 ####### CROPRO class #######
 CROProC = CROPro(crop_method=crop_method, orig_img_path_t2w=orig_img_path_t2w,orig_img_path_adc=orig_img_path_adc,orig_img_path_hbv=orig_img_path_hbv,

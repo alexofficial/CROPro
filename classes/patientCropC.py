@@ -1,8 +1,11 @@
 import os
 import numpy as np
 from classes.croppingCrontrollerClass import croppingCrontrollerClass
-        
-current_path = os.getcwd()
+from classes.saveFilesC import *
+import platform 
+
+import pathlib
+current_path = pathlib.Path(__file__).parent
 
 class patientCropC(croppingCrontrollerClass):
     def __init__(self, arg):
@@ -58,8 +61,8 @@ class patientCropC(croppingCrontrollerClass):
         
     def sliceName(self,slice_number,length_slices):
         
-        path_to_save = os.path.join(current_path,self.arg.path_to_save)
-        if not os.path.exists(path_to_save):
+        path_to_save = current_path.joinpath(self.arg.path_to_save)
+        if not path_to_save.exists:
             os.makedirs(path_to_save)
         
         slice_number_correct = int(slice_number)
@@ -67,12 +70,16 @@ class patientCropC(croppingCrontrollerClass):
         segmented_case_name = os.path.join(path_to_save,slice_name)
         return path_to_save, slice_number_correct, slice_name, segmented_case_name
     
-  
     def patientCrop(self):
-        patient_id = self.arg.orig_img_path_t2w.split("/")[-1].rsplit('.')[0].rsplit('_')[0] 
-        study_id = self.arg.orig_img_path_t2w.split("/")[-1].rsplit('.')[0].rsplit('_')[1] 
+        if platform.system() == 'Linux':
+            patient_id = self.arg.orig_img_path_t2w.parts[-1].rsplit('.')[0].rsplit('_')[0] 
+            study_id = self.arg.orig_img_path_t2w.parts[-1].rsplit('.')[0].rsplit('_')[1] 
         
-        prostate_gland_arr = self.samplingTechniqueC.load_resample_itk(os.path.join(current_path,self.arg.seg_img_path), is_mask=True)
+        elif platform.system() == 'Windows':
+            patient_id = self.arg.orig_img_path_t2w.parts[-1].rsplit('.')[0].rsplit('_')[0] 
+            study_id = self.arg.orig_img_path_t2w.parts[-1].rsplit('.')[0].rsplit('_')[1] 
+        
+        prostate_gland_arr = self.samplingTechniqueC.load_resample_itk(current_path.joinpath(self.arg.seg_img_path), is_mask=True)
         
         length_slices_gland_prostate = len(prostate_gland_arr)
         

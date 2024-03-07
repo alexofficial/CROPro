@@ -1,4 +1,4 @@
-
+#!/bin/sh
 # CROPro dataset examples
 URL=https://www.dropbox.com/sh/88g0brnkfuoyy3u/AAB2IjQezo_XJomdBsRRBijWa?dl=0
 ZIP_FILE=./dataset.zip

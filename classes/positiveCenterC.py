@@ -14,9 +14,12 @@ class positiveCenterC():
     def positiveCenter(self):
         
         acceptance_boolean, overlapping_percentage = self.check_if_lesions_and_gland_mask_overlapping(self.prostate_gland_arr_slice, self.image_source_original_tumour,True)  
+        
         if acceptance_boolean:    
             print(f'Patient({self.patient_id}) | {self.arg.patient_status} Patient was accepted: {acceptance_boolean}, with overlapping percentage of {overlapping_percentage} / 100.0')
+            
             self.calculate_boundRect()  
+            
             color = (rng.randint(0,256), rng.randint(0,256), rng.randint(0,256))
           
             image_h = self.arg.crop_image_size
@@ -50,14 +53,11 @@ class positiveCenterC():
             
             if len(indices1[0]) == len(indices2[0]):
                
-                if self.caseHealthyBoolean:
-                    _imageNArray = self.load_resample_itk(self.orig_img_path_t2w, is_mask=True)
-                    _imageNArray = _imageNArray[self.slice_number]
-                else:
-                    _, _imageNArray = self.load_resample_itk(self.orig_img_path_t2w, is_mask=True)
-                    
+                _imageNArray = self.load_resample_itk(self.orig_img_path_t2w, is_mask=False) # this can be outside so it does not load it again and again (cProfile needed)
+                _imageNArray = _imageNArray[self.slice_number]
+        
                 imga = _imageNArray[newBoundRect[1]:newBoundRect[1]+image_h, newBoundRect[0]:newBoundRect[0]+image_w]
-
+                
                 if not imga.size == 0:
                     print(f' Crop Method {self.arg.crop_method}: Patient({self.patient_id}) | {self.arg.patient_status} Patient | Slice: {self.slice_number} - tumor area: {self.number_of_voxel} (cropped)')
                     if imga.shape == (self.arg.crop_image_size,self.arg.crop_image_size):
@@ -76,12 +76,15 @@ class positiveCenterC():
                             imga_adc = _imageNArray_adc[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
                             imga_hbv = _imageNArray_hbv[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
                             
-                            pathToSave_T2W = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(self.i)+'_cord_'+str(y1)+'_'+str(x1)+'_T2W'
-                            saveFilesC.saveFiles(self,pathToSave_T2W, imga)  
-                            pathToSave_ADC = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(self.i)+'_cord_'+str(y1)+'_'+str(x1)+'_ADC'
-                            saveFilesC.saveFiles(self,pathToSave_ADC, imga_adc)  
-                            pathToSave_HBV = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(self.i)+'_cord_'+str(y1)+'_'+str(x1)+'_HBV'
-                            saveFilesC.saveFiles(self,pathToSave_HBV, imga_hbv)  
+                            # pathToSave_T2W = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(self.i)+'_cord_'+str(y1)+'_'+str(x1)+'_T2W'
+                            # saveFilesC.saveFiles(self,pathToSave_T2W, imga)  
+                            # pathToSave_ADC = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(self.i)+'_cord_'+str(y1)+'_'+str(x1)+'_ADC'
+                            # saveFilesC.saveFiles(self,pathToSave_ADC, imga_adc)  
+                            # pathToSave_HBV = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(self.i)+'_cord_'+str(y1)+'_'+str(x1)+'_HBV'
+                            # saveFilesC.saveFiles(self,pathToSave_HBV, imga_hbv)  
+                            
+                            saveFilesC.save_image_types(self,self.slice_name, x1, y1, imga, imga_adc, imga_hbv, count=None)
+                            
                         
                     else:
                         print('image size wrong!')

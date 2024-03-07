@@ -120,12 +120,10 @@ class positiveStrideC():
                                     elif self.arg.sequence_type=='bpMRI':
                                         sub_crop_tmp_img_adc = crop_tmp_img_adc[x1_seg:x2_seg,y1_seg:y2_seg]
                                         sub_crop_tmp_img_hbv = crop_tmp_img_hbv[x1_seg:x2_seg,y1_seg:y2_seg]
-                                        pathToSave_T2W = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(count)+'_cord_'+str(final_x1)+'_'+str(final_y1)+'_T2W'
-                                        saveFilesC.saveFiles(self,pathToSave_T2W, sub_crop_tmp_img)  
-                                        pathToSave_ADC = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(count)+'_cord_'+str(final_x1)+'_'+str(final_y1)+'_ADC'
-                                        saveFilesC.saveFiles(self,pathToSave_ADC, sub_crop_tmp_img_adc)  
-                                        pathToSave_HBV = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(count)+'_cord_'+str(final_x1)+'_'+str(final_y1)+'_HBV'
-                                        saveFilesC.saveFiles(self,pathToSave_HBV, sub_crop_tmp_img_hbv)                                      
+                                        
+                                        
+                                        saveFilesC.save_image_types(self,self.slice_name, final_x1, final_y1, sub_crop_tmp_img, sub_crop_tmp_img_adc, sub_crop_tmp_img_hbv, count=count)
+                                  
                                     else:
                                         print('image size wrong!')
                                 else:

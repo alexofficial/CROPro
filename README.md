@@ -171,7 +171,7 @@ We have provided two patients from [PI-CAI challenge](https://pi-cai.grand-chall
     - Prostate masks (`10001_1000001_ProstateMask.nii.gz`)
 
 ### **Download Example dataset**
-- `$ bash download_dataset.sh`
+- `$ bash download_dataset.sh` or `download_dataset.ps1`
 
 ```
 📦dataset

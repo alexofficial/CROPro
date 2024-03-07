@@ -12,6 +12,7 @@ class negativeCenterC():
            
     def negativeCenter(self):   
         self.calculate_boundRect()    
+        
         color = (rng.randint(0,256), rng.randint(0,256), rng.randint(0,256))
         
         image_h = self.arg.crop_image_size
@@ -56,7 +57,9 @@ class negativeCenterC():
                         if imga.shape == (self.arg.crop_image_size,self.arg.crop_image_size):
                             pathToSave = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(self.i)+'_cord_'+str(y1)+'_'+str(x1)+'_T2W'
                             saveFilesC.saveFiles(self,pathToSave, imga)            
+                    
                     elif self.arg.sequence_type=='bpMRI':
+                        
                         _imageNArray_adc = self.load_resample_itk(self.arg.orig_img_path_adc, self.slice_number)
                         _imageNArray_adc = _imageNArray_adc[self.slice_number]
                         
@@ -65,13 +68,15 @@ class negativeCenterC():
                         
                         imga_adc = _imageNArray_adc[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
                         imga_hbv = _imageNArray_hbv[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
+
+                        saveFilesC.save_image_types(self,self.slice_name, x1, y1, imga, imga_adc, imga_hbv, count=None)
                         
-                        pathToSave_T2W = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(self.i)+'_cord_'+str(y1)+'_'+str(x1)+'_T2W'
-                        saveFilesC.saveFiles(self,pathToSave_T2W, imga)  
-                        pathToSave_ADC = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(self.i)+'_cord_'+str(y1)+'_'+str(x1)+'_ADC'
-                        saveFilesC.saveFiles(self,pathToSave_ADC, imga_adc)  
-                        pathToSave_HBV = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(self.i)+'_cord_'+str(y1)+'_'+str(x1)+'_HBV'
-                        saveFilesC.saveFiles(self,pathToSave_HBV, imga_hbv)  
+                        # pathToSave_T2W = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(self.i)+'_cord_'+str(y1)+'_'+str(x1)+'_T2W'
+                        # saveFilesC.saveFiles(self,pathToSave_T2W, imga)  
+                        # pathToSave_ADC = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(self.i)+'_cord_'+str(y1)+'_'+str(x1)+'_ADC'
+                        # saveFilesC.saveFiles(self,pathToSave_ADC, imga_adc)  
+                        # pathToSave_HBV = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(self.i)+'_cord_'+str(y1)+'_'+str(x1)+'_HBV'
+                        # saveFilesC.saveFiles(self,pathToSave_HBV, imga_hbv)  
                     
                 else:
                     print('image size wrong!')

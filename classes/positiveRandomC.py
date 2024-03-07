@@ -80,12 +80,16 @@ class positiveRandomC():
                             _imageNArray_hbv = _imageNArray_hbv[self.slice_number]
                             imga_adc = _imageNArray_adc[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
                             imga_hbv = _imageNArray_hbv[y1:y1+self.arg.crop_image_size, x1:x1+self.arg.crop_image_size]
-                            pathToSave_T2W = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(i)+'_cord_'+str(y1)+'_'+str(x1)+'_T2W'
-                            saveFilesC.saveFiles(self,pathToSave_T2W, imgaNew)  
-                            pathToSave_ADC = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(i)+'_cord_'+str(y1)+'_'+str(x1)+'_ADC'
-                            saveFilesC.saveFiles(self,pathToSave_ADC, imga_adc)  
-                            pathToSave_HBV = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(i)+'_cord_'+str(y1)+'_'+str(x1)+'_HBV'
-                            saveFilesC.saveFiles(self,pathToSave_HBV, imga_hbv)                       
+
+                            saveFilesC.save_image_types(self,self.slice_name, x1, y1, imgaNew, imga_adc, imga_hbv, count)
+
+
+                            # pathToSave_T2W = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(i)+'_cord_'+str(y1)+'_'+str(x1)+'_T2W'
+                            # saveFilesC.saveFiles(self,pathToSave_T2W, imgaNew)  
+                            # pathToSave_ADC = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(i)+'_cord_'+str(y1)+'_'+str(x1)+'_ADC'
+                            # saveFilesC.saveFiles(self,pathToSave_ADC, imga_adc)  
+                            # pathToSave_HBV = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(i)+'_cord_'+str(y1)+'_'+str(x1)+'_HBV'
+                            # saveFilesC.saveFiles(self,pathToSave_HBV, imga_hbv)                       
                         else:
                             print('image size wrong!')
                     else:
