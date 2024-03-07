@@ -172,6 +172,7 @@ We have provided two patients from [PI-CAI challenge](https://pi-cai.grand-chall
 
 ### **Download Example dataset**
 - `$ bash download_dataset.sh` or `download_dataset.ps1`
+> if none works then you can nagivate to this [link](https://www.dropbox.com/scl/fo/oxra3gko5i4ojr0aat7jm/h?rlkey=w8p12nvdjvwj3k5soqlda0edr&e=1&dl=0), manually download and unzip and then move the dataset folder insider CROPro folder.
 
 ```
 📦dataset
