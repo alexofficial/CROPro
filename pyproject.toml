@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cropro"
-version = "0.1.1"
+version = "0.1.2"
 description = "Automated cropping of prostate MR images."
 readme = "README.md"
 requires-python = ">=3.13"
@@ -22,11 +22,10 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Image Processing",
 ]
 dependencies = [
-  "matplotlib>=3.6",
-  "numpy>=1.23",
-  "opencv-python>=4.6",
-  "Pillow>=10",
-  "SimpleITK>=2.2",
+  "matplotlib>=3.10.9",
+  "numpy>=2.4.6",
+  "opencv-python>=4.13.0.92",
+  "SimpleITK>=2.5.5",
 ]
 
 [project.urls]

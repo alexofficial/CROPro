@@ -10,9 +10,7 @@ class negativeStrideC:
         super().__init__()
 
     def negativeStride(self):
-        print(
-            f" Crop Method {self.arg.crop_method}: Patient({self.patient_id}) | {self.arg.patient_status} Patient | Slice: {self.slice_number} - mask area: {self.number_of_voxel} (cropped)"
-        )
+        self.log_crop_event("Stride cropping started", self.number_of_voxel)
         extLeft = tuple(self.biggestAreaContour[self.biggestAreaContour[:, :, 0].argmin()][0])
         extRight = tuple(self.biggestAreaContour[self.biggestAreaContour[:, :, 0].argmax()][0])
         extTop = tuple(self.biggestAreaContour[self.biggestAreaContour[:, :, 1].argmin()][0])
@@ -135,9 +133,4 @@ class negativeStrideC:
                     else:
                         print("image size wrong!")
                 else:
-                    print(
-                        "Cropped out of boundaries - case: "
-                        + str(self.patient_id)
-                        + " - slice: "
-                        + str(self.slice_number)
-                    )
+                    self.log_crop_event("Crop skipped: region out of boundaries", self.number_of_voxel)

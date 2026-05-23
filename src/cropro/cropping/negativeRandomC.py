@@ -11,9 +11,7 @@ class negativeRandomC:
         super().__init__()
 
     def negativeRandom(self):
-        print(
-            f" Crop Method {self.arg.crop_method}: Patient({self.patient_id}) | {self.arg.patient_status} Patient | Slice: {self.slice_number} - tumor area: {self.number_of_voxel} (cropped)"
-        )
+        self.log_crop_event("Random cropping started", self.number_of_voxel)
         indices = np.where(self.prostate_gland_arr_slice)
         zippedCoordinates = list(zip(indices[1], indices[0], strict=False))
         sample_size = self.sample_size_calculation(self.number_of_voxel)
@@ -74,19 +72,7 @@ class negativeRandomC:
                         self, self.slice_name, x1, y1, imga, imga_adc, imga_hbv, count=str(i)
                     )
 
-                #  pathToSave_T2W = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(i)+'_cord_'+str(y1)+'_'+str(x1)+'_T2W'
-                #  saveFilesC.saveFiles(self,pathToSave_T2W, imga)
-                #  pathToSave_ADC = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(i)+'_cord_'+str(y1)+'_'+str(x1)+'_ADC'
-                #  saveFilesC.saveFiles(self,pathToSave_ADC, imga_adc)
-                #  pathToSave_HBV = self.pathToSave_same_as_dataset_structure+'/'+self.slice_name+'_'+str(i)+'_cord_'+str(y1)+'_'+str(x1)+'_HBV'
-                #  saveFilesC.saveFiles(self,pathToSave_HBV, imga_hbv)
-
                 else:
                     print("image size wrong!")
             else:
-                print(
-                    "Cropped out of boundaries - case: "
-                    + str(self.patient_id)
-                    + " - slice: "
-                    + str(self.slice_number)
-                )
+                self.log_crop_event("Crop skipped: region out of boundaries", self.number_of_voxel)

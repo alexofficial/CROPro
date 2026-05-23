@@ -19,12 +19,12 @@ class positiveStrideC:
         )
 
         if acceptance_boolean:
-            print(
-                f"Patient({self.patient_id}) | {self.arg.patient_status} Patient was accepted: {acceptance_boolean}, with overlapping percentage of {overlapping_percentage} / 100.0"
+            self.log_crop_event(
+                "Case accepted for cropping",
+                self.number_of_voxel,
+                overlapping_percentage,
             )
-            print(
-                f" Crop Method Stride: Patient({self.patient_id}) | {self.arg.patient_status} Patient | Slice: {self.slice_number} - tumor area: {self.number_of_voxel} (cropped)"
-            )
+            self.log_crop_event("Stride cropping started", self.number_of_voxel)
             indices_tumor = np.where(self.prostate_lesion_arr_slice >= self.arg.tumor_label_level)
             indices_whole_prostate = np.where(self.prostate_gland_arr_slice > 0)
 
@@ -116,8 +116,9 @@ class positiveStrideC:
                         count = count + 1
                         cropped_tumour_area_voxel_size = np.sum(sub_crop_tmp_seg_tumor > 0)
 
-                        print(
-                            f"Lesion cropped area: {cropped_tumour_area_voxel_size} | min accepted size: {self.minimum_newthresh_number_of_voxel}"
+                        self.log_crop_event(
+                            "Validating lesion overlap for crop candidate",
+                            cropped_tumour_area_voxel_size,
                         )
 
                         if cropped_tumour_area_voxel_size >= self.minimum_newthresh_number_of_voxel:
@@ -178,14 +179,14 @@ class positiveStrideC:
                                 else:
                                     print("image size wrong!")
                             else:
-                                print(
-                                    "Cropped out of boundaries - case: "
-                                    + str(self.patient_id)
-                                    + " - slice: "
-                                    + str(self.slice_number)
+                                self.log_crop_event(
+                                    "Crop skipped: region out of boundaries",
+                                    self.number_of_voxel,
                                 )
 
         else:
-            print(
-                f"Patient({self.patient_id}) | {self.arg.patient_status} Patient was NOT accepted: {acceptance_boolean}, with overlapping percentage of {overlapping_percentage} / 100.0"
+            self.log_crop_event(
+                "Case rejected: overlap threshold not met",
+                self.number_of_voxel,
+                overlapping_percentage,
             )

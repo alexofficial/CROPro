@@ -62,9 +62,7 @@ class negativeCenterC:
             ]
 
             if not imga.size == 0:
-                print(
-                    f" Crop Method {self.arg.crop_method}: Patient({self.patient_id}) | {self.arg.patient_status} Patient | Slice: {self.slice_number} - tumor area: {self.number_of_voxel} (cropped)"
-                )
+                self.log_crop_event("Crop completed", self.number_of_voxel)
                 if imga.shape == (self.arg.crop_image_size, self.arg.crop_image_size):
                     if self.arg.sequence_type == "T2W":
                         if imga.shape == (self.arg.crop_image_size, self.arg.crop_image_size):
@@ -114,11 +112,7 @@ class negativeCenterC:
                 else:
                     print("image size wrong!")
             else:
-                print(
-                    f" Crop Method {self.arg.crop_method}: Patient({self.patient_id}) | {self.arg.patient_status} Patient | Slice: {self.slice_number} - tumor area: {self.number_of_voxel} (no crop - out of boundaries)"
-                )
+                self.log_crop_event("Crop skipped: region out of boundaries", self.number_of_voxel)
 
         else:
-            print(
-                f" Crop Method {self.arg.crop_method}: Patient({self.patient_id}) | {self.arg.patient_status} Patient | Slice: {self.slice_number} - tumor area: {self.number_of_voxel} (no crop - does not contain whole prostate)"
-            )
+            self.log_crop_event("Crop skipped: prostate not fully contained", self.number_of_voxel)

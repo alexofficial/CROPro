@@ -17,12 +17,12 @@ class positiveRandomC:
             )
         )
         if acceptance_boolean:
-            print(
-                f"Patient({self.patient_id}) | {self.arg.patient_status} Patient was accepted: {acceptance_boolean}, with overlapping percentage of {overlapping_percentage} / 100.0"
+            self.log_crop_event(
+                "Case accepted for cropping",
+                self.number_of_voxel,
+                overlapping_percentage,
             )
-            print(
-                f" Crop Method {self.arg.crop_method}: Patient({self.patient_id}) | {self.arg.patient_status} Patient | Slice: {self.slice_number} - tumor area: {self.number_of_voxel} (cropped)"
-            )
+            self.log_crop_event("Random cropping started", self.number_of_voxel)
             indices_tumor = np.where(self.prostate_lesion_arr_slice >= self.arg.tumor_label_level)
             indices_whole_prostate = np.where(self.prostate_gland_arr_slice > 0)
 
@@ -59,7 +59,10 @@ class positiveRandomC:
                         if count == 10000:
                             break
 
-                        print(f"while: {self.patient_id} - {cropped_tumour_area_voxel_size}")
+                        self.log_crop_event(
+                            "Searching for valid crop region",
+                            cropped_tumour_area_voxel_size,
+                        )
                         randomC = rng.choice(zippedCoordinates_prostate)
                         drawing = _imageNArray
 
@@ -71,7 +74,10 @@ class positiveRandomC:
                         pointCenter = (randomC[0], randomC[1])
                         cv2.circle(drawing, (pointCenter), 1, (255), 5)
                         if x1 < 0 or y1 < 0 or x2 < 0 or y2 < 0:
-                            print("out of boundaries")
+                            self.log_crop_event(
+                                "Crop candidate out of boundaries",
+                                cropped_tumour_area_voxel_size,
+                            )
                             break
                         cropped_tumour_area = self.image_source_original_tumour[
                             y1 : y1 + self.arg.crop_image_size, x1 : x1 + self.arg.crop_image_size
@@ -138,13 +144,10 @@ class positiveRandomC:
                         else:
                             print("image size wrong!")
                     else:
-                        print(
-                            "Cropped out of boundaries - case: "
-                            + str(self.patient_id)
-                            + " - slice: "
-                            + str(self.slice_number)
-                        )
+                        self.log_crop_event("Crop skipped: region out of boundaries", self.number_of_voxel)
         else:
-            print(
-                f"Patient({self.patient_id}) | {self.arg.patient_status} Patient was NOT accepted: {acceptance_boolean}, with overlapping percentage of {overlapping_percentage} / 100.0"
+            self.log_crop_event(
+                "Case rejected: overlap threshold not met",
+                self.number_of_voxel,
+                overlapping_percentage,
             )

@@ -28,6 +28,20 @@ class croppingCrontrollerClass:
     def __init__(self, arg):
         self.arg = arg
 
+    def _study_token(self):
+        study_id = getattr(self, "study_id", None)
+        if study_id in (None, ""):
+            return "unknown"
+        return str(study_id)
+
+    def log_crop_event(self, event, area_voxels=None, overlap_percentage=None):
+        message = f"{event} | study={self._study_token()}"
+        if area_voxels is not None:
+            message = f"{message} | area_voxels={int(area_voxels)}"
+        if overlap_percentage is not None:
+            message = f"{message} | overlap_pct={float(overlap_percentage):.1f}"
+        print(message)
+
     def calculate_boundRect(self):
         """
         This fuction finds an approximate rectangle around the binary image. This is used only for center cropping
@@ -287,6 +301,4 @@ class croppingCrontrollerClass:
                 if len(self.contours) > 0:
                     self.cropTechniqueControler()
             else:
-                print(
-                    f" Crop Method {self.arg.crop_method}: Patient({self.patient_id}) | {self.arg.patient_status} Patient | Slice: {self.slice_number} - tumor area: {self.number_of_voxel} (no crop)"
-                )
+                self.log_crop_event("Crop skipped: lesion threshold not met", self.number_of_voxel)
