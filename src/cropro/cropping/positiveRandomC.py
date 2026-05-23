@@ -26,9 +26,11 @@ class positiveRandomC:
             indices_tumor = np.where(self.prostate_lesion_arr_slice >= self.arg.tumor_label_level)
             indices_whole_prostate = np.where(self.prostate_gland_arr_slice > 0)
 
-            zippedCoordinates_indices_tumor = list(zip(indices_tumor[1], indices_tumor[0]))
+            zippedCoordinates_indices_tumor = list(
+                zip(indices_tumor[1], indices_tumor[0], strict=False)
+            )
             zippedCoordinates_prostate = list(
-                zip(indices_whole_prostate[1], indices_whole_prostate[0])
+                zip(indices_whole_prostate[1], indices_whole_prostate[0], strict=False)
             )
 
             if (

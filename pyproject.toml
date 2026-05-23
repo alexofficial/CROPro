@@ -7,21 +7,18 @@ name = "cropro"
 version = "0.1.0"
 description = "Automated cropping of prostate MR images."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.13"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
-  { name = "CROPro authors" }
+  { name = "Alexandors Patsanis" }
 ]
 keywords = ["medical-imaging", "mri", "prostate", "cropping", "picai"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: Image Processing",
 ]
 dependencies = [
@@ -32,11 +29,19 @@ dependencies = [
   "SimpleITK>=2.2",
 ]
 
+[project.urls]
+Homepage = "https://github.com/alexofficial/CROPro"
+Repository = "https://github.com/alexofficial/CROPro"
+Issues = "https://github.com/alexofficial/CROPro/issues"
+
 [project.optional-dependencies]
 dev = [
+  "bandit>=1.7",
   "build>=1",
+  "pip-audit>=2.7",
   "pytest>=8",
   "ruff>=0.5",
+  "twine>=5",
 ]
 
 [project.scripts]
@@ -47,7 +52,7 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

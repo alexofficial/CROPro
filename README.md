@@ -25,6 +25,7 @@ If you use CROPro in research, please cite the paper listed in [Citation](#citat
 - [Command Line](#command-line)
 - [Configuration Reference](#configuration-reference)
 - [Development](#development)
+- [PyPI Release](#pypi-release)
 - [Citation](#citation)
 
 ## Installation
@@ -68,6 +69,32 @@ For CLI-only use after PyPI publication:
 ```bash
 uv tool install cropro
 cropro --help
+```
+
+## PyPI Release
+
+This repository is configured to publish to PyPI through GitHub Actions using Trusted Publishing.
+
+### One-Time Setup
+
+1. On PyPI, create a project named `cropro` (or claim it if it already exists under your account).
+2. In PyPI project settings, configure a Trusted Publisher for this GitHub repository and workflow:
+  - owner/repo: `alexofficial/CROPro`
+  - workflow filename: `.github/workflows/pypi-publish.yml`
+  - environment: `pypi`
+
+### Release Flow
+
+1. Update version in `pyproject.toml`.
+2. Commit and push to `main`.
+3. Create a GitHub release (for example tag `v0.1.1`).
+4. The `Publish to PyPI` workflow builds the package and uploads it to PyPI.
+
+### Optional Local Validation
+
+```bash
+python -m build
+python -m twine check dist/*
 ```
 
 ## Quick Start

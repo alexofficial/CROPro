@@ -15,7 +15,7 @@ class negativeRandomC:
             f" Crop Method {self.arg.crop_method}: Patient({self.patient_id}) | {self.arg.patient_status} Patient | Slice: {self.slice_number} - tumor area: {self.number_of_voxel} (cropped)"
         )
         indices = np.where(self.prostate_gland_arr_slice)
-        zippedCoordinates = list(zip(indices[1], indices[0]))
+        zippedCoordinates = list(zip(indices[1], indices[0], strict=False))
         sample_size = self.sample_size_calculation(self.number_of_voxel)
         _imageNArray = self.load_resample_itk(self.orig_img_path_t2w, is_mask=False)
         _imageNArray = _imageNArray[self.slice_number]

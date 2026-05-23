@@ -6,13 +6,16 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   lint-test-build:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.13.5"]
 
     steps:
       - name: Checkout
@@ -34,6 +37,12 @@ jobs:
 
       - name: Run tests
         run: uv run pytest
+
+      - name: Dependency vulnerability scan
+        run: uv run pip-audit
+
+      - name: Static security scan
+        run: uv run bandit -q -r src
 
       - name: Build package
         run: uv run python -m build
