@@ -1,368 +1,543 @@
-# **CROPro: A tool for automated cropping of prostate MR images**
+# CROPro
 
-This repository provides the official implementation of `CROPro: A tool for automated cropping of prostate MR images`. 
+CROPro is a Python package for automated cropping of prostate MRI volumes. It was developed for prostate MR preprocessing workflows where a model or reviewer needs consistent image patches around the prostate gland or clinically significant prostate cancer lesions.
 
-DOI: https://doi.org/10.1117/1.JMI.10.2.024004
+The package supports:
 
+- `center`, `random`, and `stride` crop strategies
+- T2W-only and bpMRI cropping workflows
+- negative, positive, and unknown patient-status workflows
+- configurable in-plane resampling through `pixel_spacing`
+- Python API and command-line usage
 
-## **Abstract**:
+If you use CROPro in research, please cite the paper listed in [Citation](#citation):
+`CROPro: a tool for automated cropping of prostate magnetic resonance images`.
 
-**Purpose**:
-    To bypass manual data preprocessing and optimize deep learning performance, we developed and evaluated CROPro, a tool to standardize automated cropping of prostate magnetic resonance (MR) images.
+## Contents
 
-**Approach**: CROPro enables automatic cropping of MR images regardless of patient health status, image size, prostate volume, or pixel spacing. CROPro can crop foreground pixels from a region of interest (e.g., prostate) with different image sizes, pixel spacing, and sampling strategies. Performance was evaluated in the context of clinically significant prostate cancer (csPCa) classification. Transfer learning was used to train five convolutional neural network (CNN) and five vision transformer (ViT) models using different combinations of cropped image sizes (*64 × 64*, *128 × 128*, and *256 × 256* pixels<sup>2</sup>), pixel spacing (*0.2 × 0.2*, *0.3 × 0.3*, *0.4 × 0.4*, and *0.5 × 0.5* *mm<sup>2</sup>* ), and sampling strategies (*center*, *random*, and *stride* cropping) over the prostate. T2-weighted MR images (*N* = 1475) from the online available PI-CAI challenge were used to train (*N* = 1033), validate (*N* = 221), and test (*N* = 221) all models.
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Input Data](#input-data)
+- [Patient Workflows](#patient-workflows)
+- [Visual Examples](#visual-examples)
+- [Pixel Spacing](#pixel-spacing)
+- [PI-CAI Dataset Setup](#pi-cai-dataset-setup)
+- [Command Line](#command-line)
+- [Configuration Reference](#configuration-reference)
+- [Development](#development)
+- [Citation](#citation)
 
-**Results**:
-Among CNNs, SqueezeNet with stride cropping (image size: *128 × 128*, pixel spacing: *0.2 × 0.2* *mm<sup>2</sup>* ) achieved the best classification performance (*0.678 ± 0.006*). Among ViTs, ViT-H/14 with random cropping (image size: *64 × 64* and pixel spacing: *0.5 × 0.5* *mm<sup>2</sup>* ) achieved the best performance (*0.756 ± 0.009*). Model performance depended on the cropped area, with optimal size generally larger with center cropping (*∼40 cm<sup>2</sup> *) than random/stride cropping (*∼10 cm<sup>2</sup>* ).
+## Installation
 
-**Conclusion**:
-We found that csPCa classification performance of CNNs and ViTs depends on the cropping settings. We demonstrated that CROPro is well suited to optimize these settings in a standardized manner, which could improve the overall performance of deep learning models.
+This repository uses [`uv`](https://docs.astral.sh/uv/) for dependency management.
 
->*Note: The official implementation was performed with T2-weighted images. However, in this repository we also implemented cropping biparametric MRI (bpMRI) sequences such as T2-Weigted (T2W), Apparent diffusion coefficient (ADC) and high-b-value (HBV) Diffusion-weighted (DWI) MRI.*
+Install `uv` if needed:
 
-
-----
-<!-- For more information about CROPro, please read the following paper: -->
-
-# **Table of Contents**
-1. [CROPro: A tool for automated cropping of prostate MR images](#cropro-a-tool-for-automated-cropping-of-prostate-mr-images)
-   - [Read Before use](#read-before-use)
-      - [What CROPro can do?](#what-cropro-can-do)
-      - [Why to crop only slices with tumor ?](#why-crop-only-slices-with-tumor)
-      - [Why to crop a positive patient as being a negative or unknown patient?](#why-to-crop-a-positive-patient-as-being-a-negative-or-unknown-patient)
-
-2. [Installation](#installation)
-   - [Clone](#clone)
-   - [Conda Enviroment](#conda-enviroment)
-  
-
-3. [Usage](#usage)
-    - [Datasets](#dataset)
-      - [Download Example dataset](#download-example-dataset)
-    - [CROPro Examples](#cropro-examples)
-    - [How to run CROPro](#how-to-run-cropro)
-      - Import CROPro class example
-          - [Negative case with Stride Cropping Technique](#negative-case-with-stride-cropping-technique)
-          - [Positive case with Stride Cropping Technique](#positive-case-with-stride-cropping-technique)
-      - [Run CROPro from Command Line](#run-cropro-from-command-line)
-        - [Negative Patient (healthy)](#negative-patient-healthy)
-        - [Positive Patient (csPCa)](#positive-patient-cspca)
-
-4. [Citation](#citation)
-
-
-</span>
-
-----
-
-## **Read Before use**
-
-
-### **What CROPro can do?**
-First, there are three different techniques implemented to crop images: `Center`, `Random` and `Stride` cropping. Second, depending on `patient status (negative/unknown and positive)`, CROPro can be used to crop patches of MRI images with different settings. 
-
-Below, we provide an example:
-
-- In a patient with negative ("healthy") or a patient with ("unknown") health status, CROPro can be used to crop image patches over the prostate area. In both scenarios (negative/unknown), segmentation of the MRI prostate gland area is required.
-- In a patient with positive health status ("lesion"), CROPro can be used to crop areas of MRI images with lesions. This setting requires masking/segmentation of both the prostate and the lesion.
-
- > - There are also a number of settings that can be used. These include `automatic normalization`, `exclude slices` from the apex (first) and base (last) of MRI images, `lesions and prostate gland segmentation overlap criteria` (e.g, crop if lesion and prostate segmentation overlap on a % basis), more on this in `main.py`.
- > - In addition, for `positive` patients, the method uses prostate segmentation to crop the images. However, for each cropped image, a comparison of the lesion area within the cropped image is automatically performed. If this is successful, the cropped images are saved.
- > - Good to know! When cropping with CROPro for a `negative` patient, CROPro uses the slices for which there is prostate gland segmentation. Further, it will exclude slices depending on the size of the segmentation (e.g., very small segmentation areas are not considered). 
-
-### **_Why crop only slices with tumor ?_** 
-- In this implementation, the main reasons of cropping slices with lesions were to use them for training the AI model and to test image-level classification (e.g., image-level AUC).
-
-### **_Why to crop a positive patient as being a negative or unknown patient ?_**
-
- - In a scenario where the patient's health status (negative="healthy" or positive=malignant) is not given. In a test case scenario, i.e. a scenario where the patient’s health status is “unknown”, the goal would be to crop and test all slices of a patient for which segmentations are available (e.g., AI or human segmentation) `since some of the slices may have lesions.`
- - In the case of a negative patient, the prostate segmentation mask is used. If no information is available about the patient, i.e., in the case of a patient with unknown health status, prostate segmentation is also used to crop all slices. This means that prostate segmentation is used for both negative and unknown patient's health status. Although both have the same function, in a test case scenario the patient's health status is unknown. Therefore, it is important to separate the two so that the 'unknown' patient status can be distinguished from the 'negative' patient status. 
-----
-
-
-
-<center>
-<span STYLE="font-size:20pt;">Examples</span>
-
-<span STYLE="font-size:12pt;color:SkyBlue">Negative</span>: a patient with non-significant prostate cancer (Gleason Grade Group <= 1)
-
-<span STYLE="font-size:12pt;color:Red">Positive</span> : a patient with clinically significant prostate cancer (Gleason Grade Group => 2)
-
-----
-
-<span STYLE="font-size:15pt;color:SkyBlue">Negative</span>
-
-
-The <span style="color:SkyBlue;">blue</span> area represents prostate gland segmentation.
-
-<span STYLE="font-size:12pt">  MRI Images: T2w (left) - ADC (middle) - HBV (right) </span>
-
-<div class="center">  <div> <img src="./readme/segmentation/negative/PICAI/10001_1000001/T2W/T2W_axial0007.png" width="250" height="250" /> <img src="./readme/segmentation/negative/PICAI/10001_1000001/ADC/ADC_axial0007.png" width="250" height="250" alt="slice "/>  <img src="./readme/segmentation/negative/PICAI/10001_1000001/HBV/HBV_axial0007.png" width="250" height="250" alt="slice "/> </div></div>
-
-
-<span STYLE="font-size:12pt">   Method: Stride Cropping </span> <div class="center"> Cropped area: 128x128 - Pixel Spacing: 0.5 x 0.5 mm<sup>2</sup> <div> <img src="./readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_T2W.png" width="128" height="128" /> <img src="./readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_ADC.png" width="128" height="128" alt="slice "/>  <img src="./readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_HBV.png" width="128" height="128" alt="slice "/>
-
-<div class="center"> Cropped area: 128x128 - Pixel Spacing: 0.4 x 0.4 mm<sup>2</sup> <div> <img src="./readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_160_166_T2W.png" width="128" height="128" /> <img src="./readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_160_166_ADC.png" width="128" height="128" alt="slice "/>  <img src="./readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_160_166_HBV.png" width="128" height="128" alt="slice "/> 
-
-<img src="./readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_2_cord_160_198_T2W.png" width="128" height="128" /> <img src="./readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_2_cord_160_198_ADC.png" width="128" height="128" alt="slice "/>  <img src="./readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_2_cord_160_198_HBV.png" width="128" height="128" alt="slice "/>
-</div>
-</center>
-
-----
-
-<center> <span STYLE="font-size:15pt;color:red">Positive</span>
-
-The <span STYLE="color:red">red</span> area represents lesion segmentations
-<div class="center">  <div> <img src="./readme/segmentation/positive/PICAI/10117_1000117/human/t2w-human/axial15_seg.png" width="250" height="250" /> <img src="./readme/segmentation/positive/PICAI/10117_1000117/human/adc-human/axial15_seg.png" width="250" height="250" alt="slice "/>  <img src="./readme/segmentation/positive/PICAI/10117_1000117//human/hbv-human/axial15_seg.png" width="250" height="250" alt="slice "/> </div></div>
-
-<span STYLE="font-size:12pt">   Method: Stride Cropping </span> 
-<div class="center"> Cropped area: 128x128 - pixel spacing: 0.5 x 0.5mm<sup>2</sup> 
- 
-
-
-TW2 (left) -  ADC (middle) -  HBV (right) 
-
- <div> <img src="./readme/positive/PICAI_stride_0.5_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_126_99_T2W.png" width="128" height="128" /> <img src="./readme/positive/PICAI_stride_0.5_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_126_99_ADC.png" width="128" height="128" alt="slice "/>  <img src="./readme/positive/PICAI_stride_0.5_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_126_99_HBV.png" width="128" height="128" alt="slice "/>
-
-<div> <img src="./readme/positive/PICAI_stride_0.5_128_positive/10117_1000117/bpMRI_slice_15_of_27_2_cord_126_131_T2W.png" width="128" height="128" /> <img src="./readme/positive/PICAI_stride_0.5_128_positive/10117_1000117/bpMRI_slice_15_of_27_2_cord_126_131_ADC.png" width="128" height="128" alt="slice "/>  <img src="./readme/positive/PICAI_stride_0.5_128_positive/10117_1000117/bpMRI_slice_15_of_27_2_cord_126_131_HBV.png" width="128" height="128" alt="slice "/>
-
-</center>
-
-
-
-
-
-
-## **Installation**
-### **Clone**
-- `$ git clone https://github.com/alexofficial/CROPro.git`
-
-### **Conda Enviroment**
-- `$ conda env create -f conda_env/cropro.yml`
-- `$ conda activate cropro`
-
->Note: if you encounter any error you can manually download the necessary packages: see `requirements.txt`
-
-
-
-## **Usage**
-
-To familiarize yourself with CROPro, we recommend that you take a look at the examples before starting your own data set.
-
-We have provided two patients from [PI-CAI challenge](https://pi-cai.grand-challenge.org/) and [PI-CAI Study Protocol](https://zenodo.org/record/6522364#.Y_NoTTpKj-g). The two selected patients:
-- `Negative`: 10001_1000001 
-- `Positive`: 10117_1000117
-> Selection (above) is based on clinically significant prostate cancer (csPCa). Prostate gland masks (segmentation) and lesion masks are in the dataset folder.
-
-## **Dataset**
-
-- Positive Patient: `10117_1000117` from PI-CAI challenge dataset. We have provided:
-    - T2W image (`10117_1000117_T2WI.nii.gz`)
-    - Normalized T2W image (`10117_1000117_NormT2WI.nii.gz`), 
-    - Co-registered ADC (`10117_1000117_ADC.nii.gz`) 
-    - Co-registered HBV (`10117_1000117_HBV.nii.gz`)
-    - Prostate masks (`10117_1000117_ProstateMask.nii.gz` / `AI-gland/10117_1000117.nii.gz`)
-    - Lesions masks  (`AI_labels/10117_1000117.nii.gz` or `human_labels/10117_1000117.nii.gz`)
-- Negative patient: `10001_1000001` from PI-CAI challenge dataset. We have provided:  
-    - T2W image (`10001_1000001_T2WI.nii.gz`)
-    - Normalized T2W image (`10001_1000001_NormT2WI.nii.gz`), 
-    - Co-registered ADC (`10001_1000001_ADC.nii.gz`) 
-    - Co-registered HBV (`10001_1000001_HBV.nii.gz`) 
-    - Prostate masks (`10001_1000001_ProstateMask.nii.gz`)
-
-### **Download Example dataset**
-- `$ bash download_dataset.sh` or `download_dataset.ps1`
-> if none works then you can nagivate to this [link](https://www.dropbox.com/scl/fo/oxra3gko5i4ojr0aat7jm/h?rlkey=w8p12nvdjvwj3k5soqlda0edr&e=1&dl=0), manually download and unzip and then move the dataset folder insider CROPro folder.
-
-```
-📦dataset
- ┗ 📂PI-CAI
- ┃ ┣ 📂negative
- ┃ ┃ ┗ 📂10001_1000001
- ┃ ┃ ┃ ┣ 📜10001_1000001_ADC.nii.gz
- ┃ ┃ ┃ ┣ 📜10001_1000001_HBV.nii.gz
- ┃ ┃ ┃ ┣ 📜10001_1000001_NormT2WI.nii.gz
- ┃ ┃ ┃ ┣ 📜10001_1000001_ProstateMask.nii.gz
- ┃ ┃ ┃ ┗ 📜10001_1000001_T2WI.nii.gz
- ┃ ┣ 📂positive
- ┃ ┃ ┗ 📂10117_1000117
- ┃ ┃ ┃ ┣ 📜10117_1000117_ADC.nii.gz
- ┃ ┃ ┃ ┣ 📜10117_1000117_HBV.nii.gz
- ┃ ┃ ┃ ┣ 📜10117_1000117_NormT2WI.nii.gz
- ┃ ┃ ┃ ┣ 📜10117_1000117_ProstateMask.nii.gz
- ┃ ┃ ┃ ┗ 📜10117_1000117_T2WI.nii.gz
- ┃ ┗ 📂segmentation
- ┃ ┃ ┣ 📂AI-gland
- ┃ ┃ ┃ ┗ 📜10117_1000117.nii.gz
- ┃ ┃ ┣ 📂AI_labels
- ┃ ┃ ┃ ┗ 📜10117_1000117.nii.gz
- ┃ ┃ ┗ 📂human_labels
- ┃ ┃ ┃ ┗ 📜10117_1000117.nii.gz
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### **CROPro Examples**
+Clone the repository and install the environment:
 
-You can run all examples using: `$ bash examples.sh`
- 
-Cropping examples includes:
-- `$ python PI-CAI_positive_crop.py`
-- `$ python PI-CAI_negative_crop.py`
+```bash
+git clone https://github.com/alexofficial/CROPro.git
+cd CROPro
+uv sync
+```
 
-### **How to run CROPro** 
-To run CROPro, you need a DICOM file in (.mhd, .mhd, nii.gz), a prostate gland segmentation file (.mhd, .mhd, nii.gz). Also, if the patient has a positive health status, you will also need a lesion segmentation (.mhd, .mhd, nii.gz).
+Check that the CLI is available:
 
-> You can import the class and run CROPro directly from a python file. For example, to run for a negative case with stride cropping technique:
+```bash
+uv run cropro --help
+```
 
-##### **Negative Case with Stride Cropping Technique**
- <center><span STYLE="font-size:15pt;color:SkyBlue">Code for Negative case</span></center>
+For development tools such as tests and linting:
+
+```bash
+uv sync --extra dev
+```
+
+When CROPro is published to PyPI, users will be able to install it in a project with:
+
+```bash
+uv add cropro
+```
+
+For CLI-only use after PyPI publication:
+
+```bash
+uv tool install cropro
+cropro --help
+```
+
+## Quick Start
+
+### Crop A Negative Or Unknown Case
+
+Use this when you have a T2W image and a prostate gland mask. For `unknown` patient status, CROPro uses the same gland-mask workflow as `negative`, which is useful for inference or review cases where cancer status is not known yet.
 
 ```python
-# Negative CASE
-import os
-from main import CROPro
+from cropro import CROPro, CropConfig
 
-####### CROPRO settings #######
-sequence_type = 'bpMRI'  # bpMRI or T2W 
-crop_method = 'stride' # Crop Method, here we can choose between "stride", "random" and "center".
-patient_status = 'negative'  # Patients health status, here we can choose between "negative", "positive" and "unknown".
-pixel_spacing = 0.4 # Resample the original image to a specific pixel spacing.
-crop_image_size = 128 # Crop image patches of different sizes, 64x64, 128x128, 256x256, and so on.
-crop_stride = 32  # The crop stride number is a factor when using the stride-crop technique, which allows you to stride over the prostate gland. 
-sample_number = 12 # The sample number is a factor when using the random-crop technique
-normalized_image = True # In case the original images were normalized, we need to define normalized_image equal to True 
-do_normalization = True # if this is false, normalized_image must be false
-# when you perform normalization, the images are normalized with min = 0% and max = 95% percentile of the current sequence and slice. 
-# The original implementation uses only normalized T2W images, which means that do_normalization=False. (See main.py)
-# The file responsible for saving is located at class- > saveFilesC.py
-if do_normalization:
-    normalized_image=False
-# In case you want to exclude slices. For example, the first (APEX) and the last (BASE) slice you need to set keep_all_slice = False 
-# and number_of_slices_to_exclude_from_mask_gland = [1,2,..,N], which will remove the first and the last slice found with segmentation of the prostate gland.
-keep_all_slice = True
-number_of_slices_to_exclude_from_mask_gland = 1
-saved_image_type = "png" # choose your desireble format for the croped patches to be saved
+config = CropConfig(
+    crop_method="stride",
+    patient_status="negative",  # "negative" or "unknown"
+    sequence_type="T2W",
+    orig_img_path_t2w="data/patient_001/t2w.nii.gz",
+    seg_img_path="data/patient_001/prostate_gland_mask.nii.gz",
+    pixel_spacing=0.4,
+    crop_image_size=128,
+    crop_stride=32,
+    saved_image_type="png",
+    path_to_save="outputs/patient_001",
+)
 
-####### PATHS #######
-orig_img_path_t2w = 'dataset/PI-CAI/negative/10001_1000001/10001_1000001_NormT2WI.nii.gz' # path to the original T2w image
-orig_img_path_adc = 'dataset/PI-CAI/negative/10001_1000001/10001_1000001_ADC.nii.gz'# path to the original ADC image
-orig_img_path_hbv = 'dataset/PI-CAI/negative/10001_1000001/10001_1000001_HBV.nii.gz'# path to the original HBV image
-seg_img_path_gland = 'dataset/PI-CAI/negative/10001_1000001/10001_1000001_ProstateMask.nii.gz' # Prostate segmentation MASK
-
-patient_case_id = orig_img_path_t2w.rsplit('/')[3]
-path_to_save = os.path.join(os.getcwd(), 'dataset', 'cropro','PICAI', 'PICAI_'+ str(crop_method) +'_'+ str(pixel_spacing) +'_'+ str(crop_image_size) \
-    +'_'+ str(patient_status), str(patient_case_id) )# path to be saved
-
-####### CROPRO class #######
-CROProC = CROPro(crop_method=crop_method, orig_img_path_t2w=orig_img_path_t2w,orig_img_path_adc=orig_img_path_adc,orig_img_path_hbv=orig_img_path_hbv,
-                      seg_img_path=seg_img_path_gland, patient_status=patient_status,
-                      sequence_type=sequence_type,
-                      pixel_spacing=pixel_spacing, crop_image_size=crop_image_size,
-                      sample_number=sample_number, normalized_image=normalized_image,
-                      do_normalization=do_normalization, saved_image_type=saved_image_type,
-                      path_to_save=path_to_save, keep_all_slice=keep_all_slice, 
-                      number_of_slices_to_exclude_from_mask_gland=number_of_slices_to_exclude_from_mask_gland)
-CROProC.cropro()
+CROPro(config).run()
 ```
 
-You can run using: `$ python PI-CAI_negative_crop.py`.
+### Crop A Positive Case
 
-
-
-##### **Positive Case with Stride Cropping Technique**
-<center><span STYLE="font-size:15pt;color:Red">Code for Positive case</span></center>
-
-
+Use this when you have a prostate gland mask and a lesion mask. The gland mask defines the anatomical search region; the lesion mask is used to keep crops that contain enough lesion area.
 
 ```python
-# POSITIVE CASE
-import os
-from main import CROPro
+from cropro import CROPro, CropConfig
 
-####### CROPRO settings #######
-sequence_type = 'bpMRI'  # bpMRI or T2W 
-crop_method = 'stride' # Crop Method, here we can choose between "stride", "random" and "center".
-patient_status = 'positive'  # Patients health status, here we can choose between "negative", "positive" and "unknown".
-pixel_spacing = 0.5 # Resample the original image to a specific pixel spacing.
-crop_image_size = 128 # Crop image patches of different sizes, 64x64, 128x128, 256x256, and so on.
-crop_stride = 32  # The crop stride number is a factor when using the stride-crop technique, which allows you to stride over the prostate gland. 
-normalized_image = True # The original implementation uses only normalized T2W images (using AutoRef), which means that do_normalization=False and save the images using normalized_vmaxNumber = 242 (See main.py)
-normalized_vmaxNumber = 242 # if normalized_image is true and the correct range to be saved.
-sample_number = 12  # The sample number is a factor when using the random-crop technique
+config = CropConfig(
+    crop_method="stride",
+    patient_status="positive",
+    sequence_type="T2W",
+    orig_img_path_t2w="data/patient_002/t2w.nii.gz",
+    seg_img_path="data/patient_002/prostate_gland_mask.nii.gz",
+    seg_img_path_lesion="data/patient_002/lesion_mask.nii.gz",
+    tumor_label_level=1,
+    c_min_positive=0.2,
+    pixel_spacing=0.4,
+    crop_image_size=128,
+    crop_stride=32,
+    saved_image_type="png",
+    path_to_save="outputs/patient_002",
+)
 
-c_min_positive = 0.2 # This factor controls the minimum accepted area of lesion within the cropped image.
-# The level of the label. For instance, if both segmentation of the prostate gland (Level=1) and lesion co-exist (Level=2), then tumor_label_level=2. 
-# However, for PI-CAI dataset that is seperate file. Therefore, tumor_label_level=1.
-tumor_label_level = 1 
-
-# If you want to normalize the images we provide a normalization using min = 0% and max = 95% percentile of the current sequence and slice. 
-# These parameters can be change (see main.py)
-# the file responsible for saving is located at class- > saveFilesC.py
-do_normalization = True # if this is false, normalized_image must be false
-if do_normalization:
-    normalized_image=False
-
-# In case you want to exclude slices. For example, the first (APEX) and the last (BASE) slice you need to set keep_all_slice = False 
-# and number_of_slices_to_exclude_from_mask_gland = 1, which will remove the first and the last slice found with segmentation of the prostate gland.
-keep_all_slice = True
-number_of_slices_to_exclude_from_mask_gland = 1
-saved_image_type = "png" # choose your desireble format for the croped patches to be saved
-
-####### PATHS #######
-orig_img_path_t2w = 'dataset/PI-CAI/positive/10117_1000117/10117_1000117_NormT2WI.nii.gz'
-orig_img_path_adc = 'dataset/PI-CAI/positive/10117_1000117/10117_1000117_ADC.nii.gz'
-orig_img_path_hbv = 'dataset/PI-CAI/positive/10117_1000117/10117_1000117_HBV.nii.gz'
-seg_img_path_gland = 'dataset/PI-CAI/segmentation/AI-gland/10117_1000117.nii.gz' # path to the segmentation image - AI labels
-seg_img_path_lesion = 'dataset/PI-CAI/segmentation/AI_labels/10117_1000117.nii.gz' # path to the segmentation image - AI labels
-# seg_img_path = 'dataset/PI-CAI/segmentation/human_labels/10117_1000117.nii.gz' # path to the segmentation image -  Human labels
-patient_case_id = orig_img_path_t2w.rsplit('/')[3]
-path_to_save = os.path.join(os.getcwd(), 'dataset', 'cropro','PICAI', 'PICAI_'+ str(crop_method) \
-    +'_'+ str(pixel_spacing) +'_'+ str(crop_image_size) +'_'+ str(patient_status), str(patient_case_id) ) # path to be saved
-
-####### CROPRO class #######
-CROProC = CROPro(crop_method=crop_method, orig_img_path_t2w=orig_img_path_t2w,orig_img_path_adc=orig_img_path_adc,orig_img_path_hbv=orig_img_path_hbv,
-                      seg_img_path=seg_img_path_gland,seg_img_path_lesion=seg_img_path_lesion, patient_status=patient_status, crop_stride=crop_stride,
-                      sequence_type=sequence_type, tumor_label_level=tumor_label_level,
-                      pixel_spacing=pixel_spacing, crop_image_size=crop_image_size,
-                      sample_number=sample_number, normalized_image=normalized_image,
-                      normalized_vmaxNumber=normalized_vmaxNumber, saved_image_type=saved_image_type,
-                      path_to_save=path_to_save, c_min_positive=c_min_positive)
-CROProC.cropro()
+CROPro(config).run()
 ```
 
-You can run using: `$ python PI-CAI_positive_crop.py`.
+### Crop bpMRI
 
+Set `sequence_type="bpMRI"` and provide T2W, ADC, and HBV images. CROPro saves aligned crops for each modality.
 
+```python
+from cropro import CROPro, CropConfig
 
-#### **Run CROPro from Command Line**
-##### ***Negative Patient (healthy)***
-> `python main.py --crop_method 'stride' --orig_img_path_t2w 'dataset/PI-CAI/negative/10001_1000001/10001_1000001_NormT2WI.nii.gz' --seg_img_path 'dataset/PI-CAI/negative/10001_1000001/10001_1000001_ProstateMask.nii.gz' --tumor_label_level 1 --patient_status negative --pixel_spacing 0.4 --crop_image_size 128 --sequence_type 'T2W' --path_to_save 'dataset/cropro/save_crop/stride_negative_0.4_128'`
+config = CropConfig(
+    crop_method="center",
+    patient_status="negative",
+    sequence_type="bpMRI",
+    orig_img_path_t2w="data/patient_003/t2w.nii.gz",
+    orig_img_path_adc="data/patient_003/adc.nii.gz",
+    orig_img_path_hbv="data/patient_003/hbv.nii.gz",
+    seg_img_path="data/patient_003/prostate_gland_mask.nii.gz",
+    pixel_spacing=0.5,
+    crop_image_size=128,
+    saved_image_type="png",
+    path_to_save="outputs/patient_003",
+)
 
-##### ***Positive Patient (csPCa)***
-> `python main.py --crop_method 'stride' --orig_img_path_t2w 'dataset/PI-CAI/positive/10117_1000117/10117_1000117_NormT2WI.nii.gz' --seg_img_path 'dataset/PI-CAI/segmentation/AI-gland/10117_1000117.nii.gz' --seg_img_path_lesion 'dataset/PI-CAI/segmentation/AI_labels/10117_1000117.nii.gz' --tumor_label_level 1 --patient_status positive --pixel_spacing 0.4 --crop_image_size 128 --sequence_type 'T2W' --path_to_save 'dataset/cropro/save_crop/stride_positive_0.4_128'`
-
-For `random` and `Center` crop method you can just change the --crop_method 'random' to either `stride` or `center`.
-
-
-
-# Citation
-
-If you use this repository please cite the following publication:
-
+CROPro(config).run()
 ```
+
+## Input Data
+
+CROPro reads 3D medical image files through SimpleITK. Common formats include `.nii`, `.nii.gz`, `.mha`, `.mhd`, and other SimpleITK-readable formats.
+
+For a negative or unknown patient, provide:
+
+- T2W image
+- prostate gland segmentation mask
+
+For a positive patient, provide:
+
+- T2W image
+- prostate gland segmentation mask
+- lesion segmentation mask
+
+For `sequence_type="bpMRI"`, also provide:
+
+- ADC image
+- HBV image
+
+All images and masks should already be spatially aligned. CROPro resamples the image spacing for crop generation, but it does not perform image registration.
+
+## Patient Workflows
+
+| Status | Intended use | Segmentation behavior |
+| --- | --- | --- |
+| `negative` | Cancer-free cases | Uses the prostate gland mask to crop the prostate region. |
+| `positive` | Cancer-present cases | Uses the prostate gland mask for crop placement and the lesion mask to keep crops containing enough lesion area. |
+| `unknown` | Inference, testing, or review cases with unknown health status | Uses the prostate gland mask like the negative workflow and returns candidate prostate-region crops. |
+
+## Visual Examples
+
+### Negative Or Unknown Workflow
+
+For negative and unknown cases, the prostate gland mask defines the region to crop.
+
+<p>
+  <img src="./assets/readme/segmentation/negative/PICAI/10001_1000001/T2W/T2W_axial0007.png" width="220" alt="T2W prostate gland segmentation example" />
+  <img src="./assets/readme/segmentation/negative/PICAI/10001_1000001/ADC/ADC_axial0007.png" width="220" alt="ADC prostate gland segmentation example" />
+  <img src="./assets/readme/segmentation/negative/PICAI/10001_1000001/HBV/HBV_axial0007.png" width="220" alt="HBV prostate gland segmentation example" />
+</p>
+
+Stride-cropped bpMRI output at `0.4` mm/pixel. With `crop_image_size=128`, the crop covers about `51.2 x 51.2` mm.
+
+<p>
+  <img src="./assets/readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_160_166_T2W.png" width="128" alt="Negative T2W crop at 0.4 mm pixel spacing" />
+  <img src="./assets/readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_160_166_ADC.png" width="128" alt="Negative ADC crop at 0.4 mm pixel spacing" />
+  <img src="./assets/readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_160_166_HBV.png" width="128" alt="Negative HBV crop at 0.4 mm pixel spacing" />
+</p>
+
+The same case at `0.5` mm/pixel covers about `64.0 x 64.0` mm and includes more surrounding context.
+
+<p>
+  <img src="./assets/readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_T2W.png" width="128" alt="Negative T2W crop at 0.5 mm pixel spacing" />
+  <img src="./assets/readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_ADC.png" width="128" alt="Negative ADC crop at 0.5 mm pixel spacing" />
+  <img src="./assets/readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_HBV.png" width="128" alt="Negative HBV crop at 0.5 mm pixel spacing" />
+</p>
+
+### Positive Workflow
+
+For positive cases, CROPro uses the prostate gland mask plus a lesion mask. A crop is saved only when the lesion area inside the crop satisfies the configured threshold.
+
+<p>
+  <img src="./assets/readme/segmentation/positive/PICAI/10117_1000117/human/t2w-human/axial15_seg.png" width="220" alt="T2W lesion segmentation example" />
+  <img src="./assets/readme/segmentation/positive/PICAI/10117_1000117/human/adc-human/axial15_seg.png" width="220" alt="ADC lesion segmentation example" />
+  <img src="./assets/readme/segmentation/positive/PICAI/10117_1000117/human/hbv-human/axial15_seg.png" width="220" alt="HBV lesion segmentation example" />
+</p>
+
+Stride-cropped bpMRI output at `0.4` mm/pixel:
+
+<p>
+  <img src="./assets/readme/positive/PICAI_stride_0.4_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_157_136_T2W.png" width="128" alt="Positive T2W crop at 0.4 mm pixel spacing" />
+  <img src="./assets/readme/positive/PICAI_stride_0.4_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_157_136_ADC.png" width="128" alt="Positive ADC crop at 0.4 mm pixel spacing" />
+  <img src="./assets/readme/positive/PICAI_stride_0.4_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_157_136_HBV.png" width="128" alt="Positive HBV crop at 0.4 mm pixel spacing" />
+</p>
+
+The same positive case at `0.5` mm/pixel:
+
+<p>
+  <img src="./assets/readme/positive/PICAI_stride_0.5_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_126_99_T2W.png" width="128" alt="Positive T2W crop at 0.5 mm pixel spacing" />
+  <img src="./assets/readme/positive/PICAI_stride_0.5_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_126_99_ADC.png" width="128" alt="Positive ADC crop at 0.5 mm pixel spacing" />
+  <img src="./assets/readme/positive/PICAI_stride_0.5_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_126_99_HBV.png" width="128" alt="Positive HBV crop at 0.5 mm pixel spacing" />
+</p>
+
+## Pixel Spacing
+
+`pixel_spacing` controls the target in-plane resolution in millimeters per pixel before cropping. This matters because prostate MRI scans can come from different scanners, protocols, and reconstruction settings. Resampling to a consistent spacing makes crops more comparable across patients.
+
+With `crop_image_size=128`:
+
+| Pixel spacing | Crop size in pixels | Approximate physical area |
+| --- | --- | --- |
+| `0.4` mm/pixel | `128 x 128` | `51.2 x 51.2` mm |
+| `0.5` mm/pixel | `128 x 128` | `64.0 x 64.0` mm |
+
+A `0.4` mm/pixel crop is tighter around the anatomy. A `0.5` mm/pixel crop covers a wider physical region and can preserve more surrounding anatomical context.
+
+```python
+from cropro import CROPro, CropConfig
+
+tight_crop = CropConfig(
+    crop_method="center",
+    patient_status="negative",
+    sequence_type="T2W",
+    orig_img_path_t2w="data/patient_001/t2w.nii.gz",
+    seg_img_path="data/patient_001/prostate_gland_mask.nii.gz",
+    pixel_spacing=0.4,
+    crop_image_size=128,
+    path_to_save="outputs/patient_001_spacing_0.4",
+)
+
+wide_crop = CropConfig(
+    crop_method="center",
+    patient_status="negative",
+    sequence_type="T2W",
+    orig_img_path_t2w="data/patient_001/t2w.nii.gz",
+    seg_img_path="data/patient_001/prostate_gland_mask.nii.gz",
+    pixel_spacing=0.5,
+    crop_image_size=128,
+    path_to_save="outputs/patient_001_spacing_0.5",
+)
+
+CROPro(tight_crop).run()
+CROPro(wide_crop).run()
+```
+
+## PI-CAI Dataset Setup
+
+The runnable examples use the official PI-CAI Public Training and Development Dataset. Images are hosted on Zenodo, and annotations are maintained in the `DIAGNijmegen/picai_labels` repository.
+
+The default download fetches public image fold 0, which is about 5.4 GB, and clones the labels:
+
+```bash
+uv sync
+bash scripts/download_dataset.sh
+```
+
+The script writes data under `dataset/PI-CAI/`. This directory is ignored by git.
+
+The image download is resumable because the script uses `curl -C -`. If the download is interrupted, run the same command again:
+
+```bash
+bash scripts/download_dataset.sh
+```
+
+To download all five public image folds, about 26.9 GB:
+
+```bash
+CROPRO_PICAI_FOLDS="0 1 2 3 4" bash scripts/download_dataset.sh
+```
+
+To place the PI-CAI data somewhere else:
+
+```bash
+CROPRO_DATASET_ROOT="/path/to/PI-CAI" bash scripts/download_dataset.sh
+```
+
+Expected layout:
+
+```text
+dataset/PI-CAI/
+  archives/
+    picai_public_images_fold0.zip
+  images/
+    10001/
+      10001_1000001_t2w.mha
+      10001_1000001_adc.mha
+      10001_1000001_hbv.mha
+  picai_labels/
+    anatomical_delineations/whole_gland/AI/Bosma22b/
+    csPCa_lesion_delineations/human_expert/resampled/
+```
+
+Run the examples:
+
+```bash
+uv run python examples/PI-CAI_negative_crop.py
+uv run python examples/PI-CAI_positive_crop.py
+```
+
+Or run both:
+
+```bash
+bash scripts/examples.sh
+```
+
+PI-CAI notes:
+
+- Public images: `https://zenodo.org/records/6624726`
+- Labels: `https://github.com/DIAGNijmegen/picai_labels`
+- Official image names use `[patient_id]_[study_id]_t2w.mha`, `[patient_id]_[study_id]_adc.mha`, and `[patient_id]_[study_id]_hbv.mha`.
+- Whole-gland masks are used for `negative` and `unknown` crops.
+- Positive crops use the whole-gland mask plus the csPCa lesion mask. Set `tumor_label_level` to the lesion value used by the selected label file. The bundled PI-CAI positive example uses case `10032_1000032`, whose lesion label is `3`.
+
+## Command Line
+
+After installation, use the `cropro` command. From this repository, prefix commands with `uv run`.
+
+Negative or unknown patient:
+
+```bash
+uv run cropro \
+  --crop_method stride \
+  --patient_status negative \
+  --sequence_type T2W \
+  --orig_img_path_t2w data/patient_001/t2w.nii.gz \
+  --seg_img_path data/patient_001/prostate_gland_mask.nii.gz \
+  --pixel_spacing 0.4 \
+  --crop_image_size 128 \
+  --crop_stride 32 \
+  --saved_image_type png \
+  --path_to_save outputs/patient_001
+```
+
+Positive patient:
+
+```bash
+uv run cropro \
+  --crop_method stride \
+  --patient_status positive \
+  --sequence_type T2W \
+  --orig_img_path_t2w data/patient_002/t2w.nii.gz \
+  --seg_img_path data/patient_002/prostate_gland_mask.nii.gz \
+  --seg_img_path_lesion data/patient_002/lesion_mask.nii.gz \
+  --tumor_label_level 1 \
+  --c_min_positive 0.2 \
+  --pixel_spacing 0.4 \
+  --crop_image_size 128 \
+  --crop_stride 32 \
+  --saved_image_type png \
+  --path_to_save outputs/patient_002
+```
+
+Boolean CLI arguments require explicit values:
+
+```bash
+uv run cropro --keep_all_slice false --do_normalization true ...
+```
+
+## Output
+
+CROPro writes cropped files to `path_to_save`. Filenames include:
+
+- sequence type
+- slice number
+- crop index when applicable
+- crop coordinates
+- modality suffix such as `T2W`, `ADC`, or `HBV`
+
+Example:
+
+```text
+outputs/patient_001/
+  T2W_slice_7_of_21_1_cord_160_166_T2W.png
+```
+
+## Configuration Reference
+
+These variables are accepted by the Python `CropConfig` class and by CLI arguments with the same names.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `crop_method` | `center` | Crop strategy: `center`, `random`, or `stride`. |
+| `orig_img_path_t2w` | `None` | T2W image path. Required for all workflows. |
+| `orig_img_path_adc` | `None` | ADC image path. Required when `sequence_type="bpMRI"`. |
+| `orig_img_path_hbv` | `None` | HBV image path. Required when `sequence_type="bpMRI"`. |
+| `seg_img_path` | `None` | Prostate gland segmentation mask path. Required for negative, unknown, and positive workflows. |
+| `seg_img_path_lesion` | `None` | Lesion segmentation mask path. Required for positive patients unless the gland mask already contains lesion labels. |
+| `prostate_gland_seg_contains_lesion` | `False` | Set to `True` when `seg_img_path` contains both gland and lesion labels. |
+| `tumor_label_level` | `2` | Label value used for lesion pixels. Use `1` if your lesion mask stores lesions as label `1`. |
+| `patient_status` | `negative` | `negative`, `positive`, or `unknown`. |
+| `pixel_spacing` | `0.5` | Target in-plane spacing in millimeters per pixel before cropping. |
+| `crop_image_size` | `128` | Output crop width and height in pixels. |
+| `sample_number` | `12` | Number of random crops to try when `crop_method="random"`. |
+| `crop_stride` | `32` | Step size in pixels when `crop_method="stride"`. |
+| `sequence_type` | `T2W` | `T2W` for T2W-only crops, or `bpMRI` for T2W/ADC/HBV crops. |
+| `normalized_image` | `True` | Set to `True` when the source image is already normalized. |
+| `normalized_vmaxNumber` | `242` | Maximum value used by the legacy normalization/saving path. |
+| `do_normalization` | `False` | Normalize image intensity before saving. |
+| `min_percentile` | `0` | Lower percentile for intensity normalization. |
+| `max_percentile` | `99.5` | Upper percentile for intensity normalization. |
+| `saved_image_type` | `tiff` | Output type: `png`, `jpg`, `jpeg`, `tiff`, `tif`, `npy`, or `nmp`. |
+| `path_to_save` | `save_crop` | Output directory. |
+| `c_min_positive` | `0.2` | Minimum lesion overlap required for saving a positive crop. |
+| `c_min_negative` | `1` | Minimum gland coverage rule used by negative crop selection. |
+| `percentage_of_allowed_overlapping_betweeing_gland_lesions_mask` | `50.0` | Allowed overlap percentage between gland and lesion masks for mask consistency checks. |
+| `number_of_slices_to_exclude_from_mask_gland` | `1` | Number of gland-mask edge slices to exclude from crop selection. |
+| `keep_all_slice` | `True` | Keep all selected slices instead of applying slice filtering. |
+
+## Project Structure
+
+```text
+CROPro/
+  src/cropro/              # Python package
+    cropping/              # Cropping implementation
+    cli.py                 # Command-line interface
+    config.py              # CropConfig dataclass
+    core.py                # CROPro runner
+  examples/                # Runnable examples
+  tests/                   # Tests
+  config/                  # Runtime configuration
+  assets/readme/           # README images
+  scripts/                 # Dataset and example scripts
+  pyproject.toml           # Package metadata and tooling config
+  uv.lock                  # Locked development environment
+```
+
+## Development
+
+Install development dependencies:
+
+```bash
+uv sync --extra dev
+```
+
+Run checks:
+
+```bash
+uv run ruff check .
+uv run pytest
+uv run python -m compileall src main.py examples tests
+uv build --no-sources
+```
+
+Before publishing, make sure the package name and version in `pyproject.toml` are correct. After publication, verify installation in a fresh project:
+
+```bash
+uv init cropro-smoke-test
+cd cropro-smoke-test
+uv add cropro
+uv run python -c "from cropro import CROPro, CropConfig; print(CropConfig().crop_method)"
+```
+
+For publishing, prefer PyPI Trusted Publishing from CI. If publishing manually, use a scoped PyPI token and avoid storing it in shell history or repository files.
+
+## Troubleshooting
+
+### `ModuleNotFoundError: No module named 'cropro'`
+
+Install the package from the repository root:
+
+```bash
+uv sync
+```
+
+Then run commands with `uv run`.
+
+### `ModuleNotFoundError: No module named 'SimpleITK'`
+
+Install dependencies:
+
+```bash
+uv sync
+```
+
+### No crops are saved
+
+Check that:
+
+- `patient_status` matches the case.
+- `seg_img_path` points to a non-empty prostate mask.
+- Positive cases include `seg_img_path_lesion`, or set `prostate_gland_seg_contains_lesion=True` if lesion labels are inside the gland mask.
+- `tumor_label_level` matches the lesion label value in the mask.
+- `crop_image_size`, `pixel_spacing`, and `c_min_positive` are not too restrictive.
+- T2W, ADC, HBV, gland mask, and lesion mask are spatially aligned.
+
+### PI-CAI download is interrupted
+
+Run the downloader again. It resumes partial archives:
+
+```bash
+bash scripts/download_dataset.sh
+```
+
+## Citation
+
+If you use CROPro, please cite:
+
+```bibtex
 @article{10.1117/1.JMI.10.2.024004,
-author = {Alexandros Patsanis and Mohammed R. S. Sunoqrot and Tone F. Bathen and Mattijs Elschot},
-title = {{CROPro: a tool for automated cropping of prostate magnetic resonance images}},
-volume = {10},
-journal = {Journal of Medical Imaging},
-number = {2},
-publisher = {SPIE},
-pages = {024004},
-keywords = {deep learning, image cropping, image processing, prostate cancer, magnetic resonance imaging, Prostate, Education and training, Magnetic resonance imaging, Image segmentation, Performance modeling, Deep learning, Magnetism, Image classification, Principal component analysis, Visual process modeling},
-year = {2023},
-doi = {10.1117/1.JMI.10.2.024004},
-URL = {https://doi.org/10.1117/1.JMI.10.2.024004}
+  author = {Alexandros Patsanis and Mohammed R. S. Sunoqrot and Tone F. Bathen and Mattijs Elschot},
+  title = {{CROPro: a tool for automated cropping of prostate magnetic resonance images}},
+  volume = {10},
+  journal = {Journal of Medical Imaging},
+  number = {2},
+  publisher = {SPIE},
+  pages = {024004},
+  year = {2023},
+  doi = {10.1117/1.JMI.10.2.024004},
+  url = {https://doi.org/10.1117/1.JMI.10.2.024004}
 }
 ```
 
+## License
 
-
+CROPro is distributed under the MIT License. See [LICENSE](LICENSE).
