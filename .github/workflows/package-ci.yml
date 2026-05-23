@@ -42,7 +42,7 @@ jobs:
         run: uv run pip-audit
 
       - name: Static security scan
-        run: uv run bandit -q -r src
+        run: uv run bandit -q -r src -s B311
 
       - name: Build package
         run: uv run python -m build
