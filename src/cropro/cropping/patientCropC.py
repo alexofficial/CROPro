@@ -4,13 +4,13 @@ import platform
 
 import numpy as np
 
-from cropro.cropping.croppingCrontrollerClass import croppingCrontrollerClass
+from cropro.cropping.croppingControllerClass import croppingControllerClass
 
 current_path = pathlib.Path(__file__).parent
 project_root = current_path.parents[2]
 
 
-class patientCropC(croppingCrontrollerClass):
+class patientCropC(croppingControllerClass):
     def __init__(self, arg):
         self.arg = arg
         self.min_percentile = arg.min_percentile
@@ -21,7 +21,7 @@ class patientCropC(croppingCrontrollerClass):
         self.do_normalization = arg.do_normalization
         self.normalization_method = getattr(arg, "normalization_method", "percentile")
 
-        self.samplingTechniqueC = croppingCrontrollerClass(arg)
+        self.samplingTechniqueC = croppingControllerClass(arg)
         super().__init__(arg)
 
     def find_percent_of(self, number_A, number_b):
@@ -164,7 +164,7 @@ class patientCropC(croppingCrontrollerClass):
                 prostate_lesion_arr_slice = prostate_lesion_arr[slice_number]
             else:
                 prostate_lesion_arr_slice = None
-            croppingCrontrollerClass.crop_and_save(
+            croppingControllerClass.crop_and_save(
                 self,
                 self.arg.orig_img_path_t2w,
                 slice_number_correct,

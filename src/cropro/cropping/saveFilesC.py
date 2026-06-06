@@ -126,7 +126,13 @@ class saveFilesC:
             Maximum value for display (1).
         """
         # Apply autoref normalization (handles multi-dimensional arrays)
-        import autoref
+        try:
+            import autoref
+        except ImportError as exc:
+            raise ImportError(
+                "normalization_method='autoref' requires the optional 'autoref' "
+                "package. Install it with: pip install cropro[autoref]"
+            ) from exc
 
         normalized_array = autoref.autoref_normalize(image_array.astype(np.float32))
         # Autoref returns values in [0, 1] range

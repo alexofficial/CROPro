@@ -1,6 +1,6 @@
 """Registry mapping (patient_status, crop_method) pairs to crop strategy executors.
 
-This decouples the algorithm dispatch from ``croppingCrontrollerClass`` so new
+This decouples the algorithm dispatch from ``croppingControllerClass`` so new
 crop strategies can be registered without editing the controller's branching
 logic. Each registered executor is called with the controller instance as its
 sole argument, preserving the existing ``Class.method(self)`` invocation pattern.

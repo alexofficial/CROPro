@@ -2,7 +2,7 @@
 
 These lock the mapping from (patient_status, crop_method) to the concrete
 strategy executor so the registry stays behaviour-compatible with the original
-hard-coded dispatch in ``croppingCrontrollerClass``.
+hard-coded dispatch in ``croppingControllerClass``.
 """
 
 import pytest

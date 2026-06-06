@@ -7,7 +7,7 @@ import SimpleITK as sitk
 from .strategy_registry import get_strategy
 
 
-class croppingCrontrollerClass:
+class croppingControllerClass:
     """
     This class controls the cropping.
 
