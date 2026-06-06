@@ -131,7 +131,8 @@ class saveFilesC:
         except ImportError as exc:
             raise ImportError(
                 "normalization_method='autoref' requires the optional 'autoref' "
-                "package. Install it with: pip install cropro[autoref]"
+                "package, which is not available on PyPI. Install it separately "
+                "from its source before using autoref normalization."
             ) from exc
 
         normalized_array = autoref.autoref_normalize(image_array.astype(np.float32))

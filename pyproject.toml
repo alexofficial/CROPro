@@ -34,9 +34,6 @@ Repository = "https://github.com/alexofficial/CROPro"
 Issues = "https://github.com/alexofficial/CROPro/issues"
 
 [project.optional-dependencies]
-autoref = [
-  "autoref>=0.5.0",
-]
 dev = [
   "bandit>=1.7",
   "build>=1",
