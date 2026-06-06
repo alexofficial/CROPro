@@ -1,4 +1,5 @@
 import random as rng
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -101,17 +102,10 @@ class positiveRandomC:
                                 self.arg.crop_image_size,
                             ):
                                 pathToSave = (
-                                    self.pathToSave_same_as_dataset_structure
-                                    + "/"
-                                    + self.slice_name
-                                    + "_"
-                                    + str(i)
-                                    + "_cord_"
-                                    + str(y1)
-                                    + "_"
-                                    + str(x1)
+                                    Path(self.pathToSave_same_as_dataset_structure)
+                                    / f"{self.slice_name}_{i}_cord_{y1}_{x1}"
                                 )
-                                saveFilesC.saveFiles(self, pathToSave, imgaNew)
+                                saveFilesC.saveFiles(self, str(pathToSave), imgaNew)
 
                         elif self.arg.sequence_type == "bpMRI":
                             _imageNArray_adc = self.load_resample_itk(

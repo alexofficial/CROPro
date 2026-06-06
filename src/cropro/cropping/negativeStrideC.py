@@ -1,4 +1,5 @@
 import math
+from pathlib import Path
 
 import cv2
 
@@ -88,19 +89,11 @@ class negativeStrideC:
                             self.arg.crop_image_size,
                         ):
                             pathToSave = (
-                                self.pathToSave_same_as_dataset_structure
-                                + "/"
-                                + self.slice_name
-                                + "_"
-                                + str(count)
-                                + "_cord_"
-                                + str(final_x1)
-                                + "_"
-                                + str(final_y1)
-                                + "_T2W"
+                                Path(self.pathToSave_same_as_dataset_structure)
+                                / f"{self.slice_name}_{count}_cord_{final_x1}_{final_y1}_T2W"
                             )
 
-                            saveFilesC.saveFiles(self, pathToSave, sub_crop_tmp_img)
+                            saveFilesC.saveFiles(self, str(pathToSave), sub_crop_tmp_img)
                     elif self.arg.sequence_type == "bpMRI":
                         sub_crop_tmp_img_adc = crop_tmp_img_adc[x1_seg:x2_seg, y1_seg:y2_seg]
                         sub_crop_tmp_img_hbv = crop_tmp_img_hbv[x1_seg:x2_seg, y1_seg:y2_seg]

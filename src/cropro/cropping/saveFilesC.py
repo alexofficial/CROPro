@@ -83,6 +83,7 @@ class saveFilesC:
         self.normalized_vmaxNumber = self.arg.normalized_vmaxNumber
         self.normalized_image = self.arg.normalized_image
         self.do_normalization = self.arg.do_normalization
+        self.normalization_method = getattr(self.arg, "normalization_method", "percentile")
         self.orig_img_path_t2w = self.arg.orig_img_path_t2w
 
     def set_config_file(self):
@@ -105,6 +106,31 @@ class saveFilesC:
         minVal = np.percentile(image_array, min_percentile)
         maxVal = np.percentile(image_array, max_percentile)
         return minVal, maxVal
+
+    def do_autoref_normalization(self, image_array: np.ndarray) -> tuple[np.ndarray, float, float]:
+        """
+        Normalize image using autoref method.
+
+        Parameters
+        ----------
+        image_array : np.ndarray
+            The image array to normalize.
+
+        Returns
+        -------
+        normalized_array : np.ndarray
+            The normalized image array.
+        vmin : float
+            Minimum value for display (0).
+        vmax : float
+            Maximum value for display (1).
+        """
+        # Apply autoref normalization (handles multi-dimensional arrays)
+        import autoref
+
+        normalized_array = autoref.autoref_normalize(image_array.astype(np.float32))
+        # Autoref returns values in [0, 1] range
+        return normalized_array, 0.0, 1.0
 
     def saveImage(
         self,
@@ -141,31 +167,55 @@ class saveFilesC:
                     self.saved_image_type,
                 )
             elif self.do_normalization:
-                minVal, maxVal = self.do_normalization_method(
-                    image_array,
-                    self.min_percentile,
-                    self.max_percentile,
-                    self.orig_img_path_t2w,
-                )
-                self.saveImage(finalpathToSave, image_array, minVal, maxVal, self.saved_image_type)
+                if self.normalization_method == "autoref":
+                    normalized_array, minVal, maxVal = self.do_autoref_normalization(image_array)
+                    self.saveImage(finalpathToSave, normalized_array, minVal, maxVal, self.saved_image_type)
+                else:
+                    if self.normalization_method == "gaussian":
+                        normalized_array, minVal, maxVal = self.do_gaussian_normalization(image_array)
+                        self.saveImage(finalpathToSave, normalized_array, minVal, maxVal, self.saved_image_type)
+                    else:
+                        minVal, maxVal = self.do_normalization_method(
+                            image_array,
+                            self.min_percentile,
+                            self.max_percentile,
+                            self.orig_img_path_t2w,
+                        )
+                        self.saveImage(finalpathToSave, image_array, minVal, maxVal, self.saved_image_type)
             else:
                 self.saveImage(finalpathToSave, image_array, None, None, self.saved_image_type)
         elif self.ADC in str(pathToSave):
-            minVal, maxVal = self.do_normalization_method(
-                image_array,
-                self.min_percentile,
-                self.max_percentile,
-                self.arg.orig_img_path_adc,
-            )
-            self.saveImage(finalpathToSave, image_array, minVal, maxVal, self.saved_image_type)
+            if self.normalization_method == "autoref" and self.do_normalization:
+                normalized_array, minVal, maxVal = self.do_autoref_normalization(image_array)
+                self.saveImage(finalpathToSave, normalized_array, minVal, maxVal, self.saved_image_type)
+            else:
+                if self.normalization_method == "gaussian" and self.do_normalization:
+                    normalized_array, minVal, maxVal = self.do_gaussian_normalization(image_array)
+                    self.saveImage(finalpathToSave, normalized_array, minVal, maxVal, self.saved_image_type)
+                else:
+                    minVal, maxVal = self.do_normalization_method(
+                        image_array,
+                        self.min_percentile,
+                        self.max_percentile,
+                        self.arg.orig_img_path_adc,
+                    )
+                    self.saveImage(finalpathToSave, image_array, minVal, maxVal, self.saved_image_type)
         elif self.HBV in str(pathToSave):
-            minVal, maxVal = self.do_normalization_method(
-                image_array,
-                self.min_percentile,
-                self.max_percentile,
-                self.arg.orig_img_path_hbv,
-            )
-            self.saveImage(finalpathToSave, image_array, minVal, maxVal, self.saved_image_type)
+            if self.normalization_method == "autoref" and self.do_normalization:
+                normalized_array, minVal, maxVal = self.do_autoref_normalization(image_array)
+                self.saveImage(finalpathToSave, normalized_array, minVal, maxVal, self.saved_image_type)
+            else:
+                if self.normalization_method == "gaussian" and self.do_normalization:
+                    normalized_array, minVal, maxVal = self.do_gaussian_normalization(image_array)
+                    self.saveImage(finalpathToSave, normalized_array, minVal, maxVal, self.saved_image_type)
+                else:
+                    minVal, maxVal = self.do_normalization_method(
+                        image_array,
+                        self.min_percentile,
+                        self.max_percentile,
+                        self.arg.orig_img_path_hbv,
+                    )
+                    self.saveImage(finalpathToSave, image_array, minVal, maxVal, self.saved_image_type)
         else:
             print("The path needs to contain the word ADC, T2W or HBV: See config/modalities.ini")
 
@@ -253,6 +303,41 @@ class saveFilesC:
         #     minVal = np.percentile([minI,maxI], min_percentile)
         #     maxVal = np.percentile([minI,maxI], max_percentile)
         #     return minVal, maxVal
+
+        def do_gaussian_normalization(self, image_array: np.ndarray) -> tuple[np.ndarray, float, float]:
+            """
+            Normalize image using Gaussian (z-score) normalization.
+
+            Parameters
+            ----------
+            image_array : np.ndarray
+                The image array to normalize.
+
+            Returns
+            -------
+            normalized_array : np.ndarray
+                The normalized image array (z-scores clipped to [-3, 3] and rescaled to [0, 1]).
+            vmin : float
+                Minimum value for display (0).
+            vmax : float
+                Maximum value for display (1).
+            """
+            # Compute mean and standard deviation
+            mean = np.mean(image_array)
+            std = np.std(image_array)
+        
+            # Avoid division by zero
+            if std == 0:
+                return np.zeros_like(image_array, dtype=np.float32), 0.0, 1.0
+        
+            # Z-score normalization: (x - mean) / std
+            z_scores = (image_array - mean) / std
+        
+            # Clip to [-3, 3] (covers ~99.7% of normal distribution) and rescale to [0, 1]
+            clipped = np.clip(z_scores, -3, 3)
+            normalized_array = (clipped + 3) / 6  # Maps [-3, 3] to [0, 1]
+        
+            return normalized_array.astype(np.float32), 0.0, 1.0
 
         def saveImage(
             pathToSave: pathlib.Path,

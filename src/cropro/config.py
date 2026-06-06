@@ -10,11 +10,13 @@ CropMethod = Literal["center", "random", "stride"]
 PatientStatus = Literal["negative", "positive", "unknown"]
 SequenceType = Literal["T2W", "bpMRI"]
 SavedImageType = Literal["npy", "jpg", "jpeg", "png", "tiff", "tif"]
+NormalizationMethod = Literal["percentile", "autoref", "gaussian"]
 
 VALID_CROP_METHODS = {"center", "random", "stride"}
 VALID_PATIENT_STATUSES = {"negative", "positive", "unknown"}
 VALID_SEQUENCE_TYPES = {"T2W", "bpMRI"}
 VALID_SAVED_IMAGE_TYPES = {"npy", "jpg", "jpeg", "png", "tiff", "tif"}
+VALID_NORMALIZATION_METHODS = {"percentile", "autoref", "gaussian"}
 SAVED_IMAGE_TYPE_ALIASES = {
     "nmp": "npy",
     "npm": "npy",
@@ -47,6 +49,7 @@ class CropConfig:
     normalized_image: bool = True
     normalized_vmaxNumber: int = 242
     do_normalization: bool = False
+    normalization_method: NormalizationMethod = "percentile"
     min_percentile: float = 0
     max_percentile: float = 99.5
     saved_image_type: SavedImageType = "tiff"
@@ -79,7 +82,11 @@ class CropConfig:
                 f"Invalid saved_image_type {self.saved_image_type!r}. "
                 f"Expected one of {sorted(VALID_SAVED_IMAGE_TYPES)}."
             )
-
+        if self.normalization_method not in VALID_NORMALIZATION_METHODS:
+            raise ValueError(
+                f"Invalid normalization_method {self.normalization_method!r}. "
+                f"Expected one of {sorted(VALID_NORMALIZATION_METHODS)}."
+            )
         if self.pixel_spacing <= 0:
             raise ValueError("pixel_spacing must be greater than 0.")
 

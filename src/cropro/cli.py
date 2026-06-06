@@ -43,6 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--normalized_image", type=_boolean, default=True)
     parser.add_argument("--normalized_vmaxNumber", type=int, default=242)
     parser.add_argument("--do_normalization", type=_boolean, default=False)
+    parser.add_argument("--normalization_method", default="percentile", choices=["percentile", "autoref", "gaussian"])
     parser.add_argument("--min_percentile", type=float, default=0)
     parser.add_argument("--max_percentile", type=float, default=99.5)
     parser.add_argument(

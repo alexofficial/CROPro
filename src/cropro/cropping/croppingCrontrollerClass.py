@@ -4,12 +4,7 @@ import cv2
 import numpy as np
 import SimpleITK as sitk
 
-from .negativeCenterC import negativeCenterC
-from .negativeRandomC import negativeRandomC
-from .negativeStrideC import negativeStrideC
-from .positiveCenterC import positiveCenterC
-from .positiveRandomC import positiveRandomC
-from .positiveStrideC import positiveStrideC
+from .strategy_registry import get_strategy
 
 
 class croppingCrontrollerClass:
@@ -137,26 +132,9 @@ class croppingCrontrollerClass:
         """
         # if there is an area
         if len(self.biggestAreaContour_array) == 1:
-            # choose the crop method and call the class related to it.
-            if self.arg.crop_method == "random":
-                if self.arg.patient_status == "negative" or self.arg.patient_status == "unknown":
-                    negativeRandomC.negativeRandom(self)
-
-                elif self.arg.patient_status == "positive":
-                    positiveRandomC.positiveRandom(self)
-
-            elif self.arg.crop_method == "stride":
-                if self.arg.patient_status == "negative" or self.arg.patient_status == "unknown":
-                    negativeStrideC.negativeStride(self)
-
-                elif self.arg.patient_status == "positive":
-                    positiveStrideC.positiveStride(self)
-
-            elif self.arg.crop_method == "center":
-                if self.arg.patient_status == "negative" or self.arg.patient_status == "unknown":
-                    negativeCenterC.negativeCenter(self)
-                else:
-                    positiveCenterC.positiveCenter(self)
+            # choose the crop method via the strategy registry and execute it.
+            strategy = get_strategy(self.arg.patient_status, self.arg.crop_method)
+            strategy(self)
 
     def calculate_biggest_area_of_contour(self):
         """
@@ -240,7 +218,7 @@ class croppingCrontrollerClass:
             ) = threshold_check(self, self.labels, caseHealthyBoolean)
             if self.threshold_checkBoolean:
                 self.prostate_gland_arr_slice = np.array(
-                    self.prostate_gland_arr_slice * 255, dtype=np.uint8
+                    self.prostate_gland_arr_slice.astype(np.int16) * 255, dtype=np.uint8
                 )
                 self.src_gray_blurred_whole_prostate = cv2.blur(
                     self.prostate_gland_arr_slice, (3, 3)
@@ -286,10 +264,10 @@ class croppingCrontrollerClass:
                     self.image_source_original_whole_prostate = self.prostate_gland_arr_slice
 
                 self.image_source_original_whole_prostate = np.array(
-                    self.image_source_original_whole_prostate * 255, dtype=np.uint8
+                    self.image_source_original_whole_prostate.astype(np.int16) * 255, dtype=np.uint8
                 )
                 self.image_source_original_tumour = np.array(
-                    self.image_source_original_tumour * 255, dtype=np.uint8
+                    self.image_source_original_tumour.astype(np.int16) * 255, dtype=np.uint8
                 )
                 self.src_gray_blurred_whole_prostate = cv2.blur(
                     self.image_source_original_whole_prostate, (3, 3)

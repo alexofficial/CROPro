@@ -19,6 +19,7 @@ class patientCropC(croppingCrontrollerClass):
         self.normalized_vmaxNumber = arg.normalized_vmaxNumber
         self.normalized_image = arg.normalized_image
         self.do_normalization = arg.do_normalization
+        self.normalization_method = getattr(arg, "normalization_method", "percentile")
 
         self.samplingTechniqueC = croppingCrontrollerClass(arg)
         super().__init__(arg)

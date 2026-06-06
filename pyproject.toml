@@ -22,6 +22,7 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Image Processing",
 ]
 dependencies = [
+  "autoref>=0.5.0",
   "matplotlib>=3.10.9",
   "numpy>=2.4.6",
   "opencv-python>=4.13.0.92",
