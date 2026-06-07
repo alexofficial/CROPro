@@ -30,6 +30,18 @@ class negativeRandomC:
 
             cv2.rectangle(self.drawing, (x1, y1), (x2, y2), (255, 255, 255), 1)
 
+            in_bounds = (
+                x1 >= 0
+                and y1 >= 0
+                and x1 + self.arg.crop_image_size <= _imageNArray.shape[1]
+                and y1 + self.arg.crop_image_size <= _imageNArray.shape[0]
+            )
+            if not in_bounds:
+                self.log_crop_event(
+                    "Crop skipped: region out of boundaries", self.number_of_voxel
+                )
+                continue
+
             imga = _imageNArray[
                 y1 : y1 + self.arg.crop_image_size, x1 : x1 + self.arg.crop_image_size
             ]
@@ -45,12 +57,12 @@ class negativeRandomC:
 
                 elif self.arg.sequence_type == "bpMRI":
                     _imageNArray_adc = self.load_resample_itk(
-                        self.arg.orig_img_path_adc, self.slice_number
+                        self.arg.orig_img_path_adc, is_mask=False
                     )
                     _imageNArray_adc = _imageNArray_adc[self.slice_number]
 
                     _imageNArray_hbv = self.load_resample_itk(
-                        self.arg.orig_img_path_hbv, self.slice_number
+                        self.arg.orig_img_path_hbv, is_mask=False
                     )
                     _imageNArray_hbv = _imageNArray_hbv[self.slice_number]
 

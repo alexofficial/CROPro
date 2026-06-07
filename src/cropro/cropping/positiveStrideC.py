@@ -43,7 +43,7 @@ class positiveStrideC:
                 _imageNArray = self.load_resample_itk(self.orig_img_path_t2w, is_mask=False)
                 _imageNArray = _imageNArray[self.slice_number]
 
-                original_draw = self.load_resample_itk(self.orig_img_path_t2w, self.slice_number)
+                original_draw = self.load_resample_itk(self.orig_img_path_t2w, is_mask=False)
                 original_draw = original_draw[self.slice_number]
 
                 # argmin will return the indices of the minimum values along the axis
@@ -86,6 +86,12 @@ class positiveStrideC:
                 x2 = int(center_i + (full_range_i / 2))
                 y1 = int(center_j - (full_range_j / 2))
                 y2 = int(center_j + (full_range_j / 2))
+
+                if x1 < 0 or y1 < 0 or x2 > _imageNArray.shape[0] or y2 > _imageNArray.shape[1]:
+                    self.log_crop_event(
+                        "Crop skipped: region out of boundaries", self.number_of_voxel
+                    )
+                    return
 
                 crop_tmp_seg_tumor = self.image_source_original_tumour[x1:x2, y1:y2]
                 crop_tmp_img = _imageNArray[x1:x2, y1:y2]

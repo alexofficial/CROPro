@@ -91,6 +91,18 @@ class positiveRandomC:
                     _imageNArrayNew = self.load_resample_itk(self.orig_img_path_t2w, is_mask=False)
                     _imageNArrayNew = _imageNArrayNew[self.slice_number]
 
+                    in_bounds = (
+                        x1 >= 0
+                        and y1 >= 0
+                        and x1 + self.arg.crop_image_size <= _imageNArrayNew.shape[1]
+                        and y1 + self.arg.crop_image_size <= _imageNArrayNew.shape[0]
+                    )
+                    if not in_bounds:
+                        self.log_crop_event(
+                            "Crop skipped: region out of boundaries", self.number_of_voxel
+                        )
+                        continue
+
                     imgaNew = _imageNArrayNew[
                         y1 : y1 + self.arg.crop_image_size, x1 : x1 + self.arg.crop_image_size
                     ]

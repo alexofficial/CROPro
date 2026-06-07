@@ -47,6 +47,10 @@ class negativeStrideC:
         y1 = int(center_j - (full_range_j / 2))
         y2 = int(center_j + (full_range_j / 2))
 
+        if x1 < 0 or y1 < 0 or x2 > _imageNArray.shape[0] or y2 > _imageNArray.shape[1]:
+            self.log_crop_event("Crop skipped: region out of boundaries", self.number_of_voxel)
+            return
+
         crop_tmp_img = _imageNArray[x1:x2, y1:y2]
 
         if self.arg.sequence_type == "bpMRI":
