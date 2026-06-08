@@ -101,6 +101,14 @@ class patientCropC(croppingControllerClass):
         else:
             raise RuntimeError(f"Unsupported platform: {platform.system()}")
 
+        # Optional pre-step: resample every image onto the common T2W grid before
+        # cropping. We set the T2W path on both controllers so the gland/lesion
+        # masks (loaded through samplingTechniqueC) are aligned onto the same grid.
+        if getattr(self.arg, "resample_first", False):
+            self.orig_img_path_t2w = self.arg.orig_img_path_t2w
+            self.samplingTechniqueC.orig_img_path_t2w = self.arg.orig_img_path_t2w
+            self.samplingTechniqueC.prepare_resampled_inputs()
+
         prostate_gland_arr = self.samplingTechniqueC.load_resample_itk(
             self.arg.seg_img_path, is_mask=True
         )

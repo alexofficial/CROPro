@@ -27,6 +27,40 @@ def test_cli_parses_booleans_and_crop_method():
     assert config.crop_method == "stride"
 
 
+def test_cli_resample_bpmri_to_t2w_defaults_false_and_parses():
+    default_config = CropConfig(orig_img_path_t2w="t2w.mha", seg_img_path="gland.nii.gz")
+    assert default_config.resample_bpmri_to_t2w is False
+
+    config = parse_args(
+        [
+            "--orig_img_path_t2w",
+            "t2w.mha",
+            "--seg_img_path",
+            "gland.nii.gz",
+            "--resample_bpmri_to_t2w",
+            "true",
+        ]
+    )
+    assert config.resample_bpmri_to_t2w is True
+
+
+def test_cli_resample_first_defaults_false_and_parses():
+    default_config = CropConfig(orig_img_path_t2w="t2w.mha", seg_img_path="gland.nii.gz")
+    assert default_config.resample_first is False
+
+    config = parse_args(
+        [
+            "--orig_img_path_t2w",
+            "t2w.mha",
+            "--seg_img_path",
+            "gland.nii.gz",
+            "--resample_first",
+            "true",
+        ]
+    )
+    assert config.resample_first is True
+
+
 def test_cli_alias_nmp_is_normalized_to_npy():
     config = parse_args(
         [
