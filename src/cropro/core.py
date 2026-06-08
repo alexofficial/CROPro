@@ -39,6 +39,13 @@ class CROPro:
         self.run()
 
     def run(self) -> None:
+        # Crop pipeline. For bpMRI, fail fast with an actionable message if the
+        # ADC/HBV sequences are not on the T2W grid and on-the-fly resampling is
+        # off (cropping misaligned sequences would silently mix anatomy).
+        from cropro.resample import check_bpmri_alignment
+
+        check_bpmri_alignment(self.config)
+
         from cropro.cropping.patientCropC import patientCropC
 
         patient_crop = patientCropC(self.arg)

@@ -4,18 +4,21 @@ CROPro is a Python package for automated cropping of prostate MRI volumes. It wa
 
 The package supports:
 
+- two selectable pipelines: a `crop` pipeline and a `resample` pipeline
 - `center`, `random`, and `stride` crop strategies
 - T2W-only and bpMRI cropping workflows
 - negative, positive, and unknown patient-status workflows
 - configurable in-plane resampling through `pixel_spacing`
+- a configurable dataset layout so the same pipelines work on multiple databases
 - Python API and command-line usage
 
-If you use CROPro in research, please cite the paper listed in [Citation](#citation):
+If you use CROPro, please cite the paper listed in [Citation](#citation):
 `CROPro: a tool for automated cropping of prostate magnetic resonance images`.
 
 ## Contents
 
 - [Installation](#installation)
+- [Pipelines](#pipelines)
 - [Quick Start](#quick-start)
 - [Input Data](#input-data)
 - [Patient Workflows](#patient-workflows)
@@ -96,6 +99,84 @@ This repository is configured to publish to PyPI through GitHub Actions using Tr
 python -m build
 python -m twine check dist/*
 ```
+
+## Pipelines
+
+CROPro exposes two pipelines as command-line subcommands. Pick the one that
+matches what you need; they can be combined (resample first, then crop).
+
+| Pipeline | Command | What it does |
+| --- | --- | --- |
+| Resample | `cropro resample` | Resamples a whole database onto each case's T2W grid and writes the aligned copies to disk. Use this to prepare a dataset before cropping. |
+| Crop | `cropro crop` | Crops T2W (and optionally ADC/HBV) around the gland or lesion. For bpMRI it verifies that ADC/HBV are aligned to T2W and stops with a clear message if they are not. |
+
+Running `cropro` without a subcommand defaults to `crop`, so existing commands
+keep working unchanged.
+
+### Resample Pipeline
+
+The resample pipeline aligns every case in a database onto its T2W geometry. It
+is database-agnostic: the file layout is described by a configurable
+`DatasetLayout`, which defaults to the PI-CAI conventions but can be pointed at
+any dataset through CLI flags or an INI file.
+
+```bash
+# Resample the PI-CAI database into a new folder
+uv run cropro resample \
+  --images-root dataset/PI-CAI/images \
+  --output-root dataset/PI-CAI/images_resampled
+```
+
+Resampled T2W/ADC/HBV scans use B-spline interpolation; gland and lesion masks
+use nearest-neighbour. The output mirrors the input folder structure. Omit
+`--output-root` to write the aligned copies next to the originals with a
+`_to_t2w` suffix.
+
+If a `*.zip` image archive is present (for the PI-CAI layout this defaults to
+`dataset/PI-CAI/archives`, i.e. `<images-root>/../archives`), the pipeline
+unpacks it into `--images-root` before aligning. Existing files are skipped, so
+the step is safe to re-run. Point `--archives-root` at a different directory, or
+pass `--archives-root none` to disable extraction.
+
+To target a different database, override the layout. Either pass the suffixes and
+mask roots directly:
+
+```bash
+uv run cropro resample \
+  --images-root data/my_dataset/images \
+  --output-root data/my_dataset/resampled \
+  --t2w-suffix _t2w.nii.gz \
+  --adc-suffix _adc.nii.gz \
+  --hbv-suffix _hbv.nii.gz \
+  --gland-root data/my_dataset/masks/gland \
+  --lesion-root data/my_dataset/masks/lesion
+```
+
+or keep the paths in an INI file and pass `--config`:
+
+```ini
+# config/resample_paths.ini
+[paths]
+images_root = data/my_dataset/images
+output_root = data/my_dataset/resampled
+gland_root  = data/my_dataset/masks/gland
+lesion_root = data/my_dataset/masks/lesion
+```
+
+```bash
+uv run cropro resample --config config/resample_paths.ini
+```
+
+CLI flags take precedence over values in the INI file, so you can keep shared
+paths in the file and override individual fields on the command line.
+
+### Crop Pipeline
+
+The crop pipeline is the original CROPro behaviour. See
+[Quick Start](#quick-start) and [Command Line](#command-line) for examples. For
+bpMRI it first checks that ADC and HBV are aligned to T2W; if they are not, it
+stops and tells you to run the resample pipeline (or to let it resample on the
+fly). See [Aligning ADC/HBV to T2W (bpMRI)](#aligning-adchbv-to-t2w-bpmri).
 
 ## Quick Start
 
@@ -368,7 +449,10 @@ PI-CAI notes:
 
 ## Command Line
 
-After installation, use the `cropro` command. From this repository, prefix commands with `uv run`.
+After installation, use the `cropro` command. It has two subcommands, `crop`
+and `resample` (see [Pipelines](#pipelines)); running `cropro` with no
+subcommand defaults to `crop`. From this repository, prefix commands with
+`uv run`.
 
 Negative or unknown patient:
 
@@ -448,11 +532,16 @@ These variables are accepted by the Python `CropConfig` class and by CLI argumen
 | `sample_number` | `12` | Number of random crops to try when `crop_method="random"`. |
 | `crop_stride` | `32` | Step size in pixels when `crop_method="stride"`. |
 | `sequence_type` | `T2W` | `T2W` for T2W-only crops, or `bpMRI` for T2W/ADC/HBV crops. |
+| `resample_bpmri_to_t2w` | `False` | When `True`, resample ADC/HBV onto the T2W grid on-the-fly so all sequences align before cropping. |
+| `resample_first` | `False` | When `True`, run a pre-step that resamples **all** images (T2W, ADC, HBV and the segmentation masks) onto the common T2W grid before cropping. Implies `resample_bpmri_to_t2w` and also aligns the masks. |
 | `normalized_image` | `True` | Set to `True` when the source image is already normalized. |
 | `normalized_vmaxNumber` | `242` | Maximum value used by the legacy normalization/saving path. |
 | `do_normalization` | `False` | Normalize image intensity before saving. |
-| `min_percentile` | `0` | Lower percentile for intensity normalization. |
-| `max_percentile` | `99.5` | Upper percentile for intensity normalization. |
+| `t2w_normalization_method` | `autoref` | Normalization strategy for T2W: `percentile`, `autoref`, `gaussian`, or `zscore_clip`. |
+| `adc_normalization_method` | `percentile` | Normalization strategy for ADC (`percentile`, `gaussian`, `zscore_clip`; `autoref` is T2W-only). |
+| `hbv_normalization_method` | `percentile` | Normalization strategy for HBV (`percentile`, `gaussian`, `zscore_clip`; `autoref` is T2W-only). |
+| `min_percentile` | `0.5` | Lower percentile for intensity clipping/normalization. |
+| `max_percentile` | `99.5` | Upper percentile for intensity clipping/normalization. |
 | `saved_image_type` | `tiff` | Output type: `png`, `jpg`, `jpeg`, `tiff`, `tif`, `npy`, or `nmp`. |
 | `path_to_save` | `save_crop` | Output directory. |
 | `c_min_positive` | `0.2` | Minimum lesion overlap required for saving a positive crop. |
@@ -460,6 +549,99 @@ These variables are accepted by the Python `CropConfig` class and by CLI argumen
 | `percentage_of_allowed_overlapping_betweeing_gland_lesions_mask` | `50.0` | Allowed overlap percentage between gland and lesion masks for mask consistency checks. |
 | `number_of_slices_to_exclude_from_mask_gland` | `1` | Number of gland-mask edge slices to exclude from crop selection. |
 | `keep_all_slice` | `True` | Keep all selected slices instead of applying slice filtering. |
+
+### Aligning ADC/HBV to T2W (bpMRI)
+
+In PI-CAI the T2W, ADC and HBV sequences are acquired independently and often
+differ in slice count and in-plane size/spacing. Since CROPro crops all three at
+the same slice index and `(x, y)` origin, a mismatch can produce misaligned crops
+or an `IndexError`.
+
+By default the crop pipeline **checks** that ADC and HBV are aligned to T2W before
+it starts. If they are not, it stops with a clear message instead of producing
+misaligned crops, and points you to the two ways of fixing it:
+
+- **Resample pipeline (recommended)** — run [`cropro resample`](#resample-pipeline)
+  once to write aligned copies of the whole database, then crop those.
+
+  ```bash
+  uv run cropro resample --images-root dataset/PI-CAI/images --output-root dataset/PI-CAI/images_resampled
+  ```
+
+  This writes the resampled ADC/HBV files for every case into a new
+  `dataset/PI-CAI/images_resampled` folder (named `{patient}_{study}_adc.mha` and
+  `{patient}_{study}_hbv.mha`). Omit `--output-root` to write the aligned copies
+  next to the originals with a `_to_t2w` suffix instead.
+
+- **On-the-fly during cropping** — pass `--resample_bpmri_to_t2w true`. CROPro then
+  resamples each ADC/HBV volume onto the resampled T2W grid as it loads them (no
+  extra files written) and the alignment check is skipped. Intensity images use
+  B-spline interpolation; the T2W reference is reused across the case.
+
+```bash
+uv run cropro --sequence_type bpMRI --resample_bpmri_to_t2w true ...
+```
+
+To resample **everything first** — including the gland/lesion masks — pass
+`--resample_first true`. This runs an explicit pre-step that aligns T2W, ADC, HBV
+and the segmentation masks onto the same T2W grid before any cropping starts, so
+the crop coordinates are guaranteed to match across every image. It implies
+`--resample_bpmri_to_t2w`:
+
+```bash
+uv run cropro --sequence_type bpMRI --resample_first true ...
+```
+
+### Intensity normalization
+
+Normalization is configured **per sequence**: T2W, ADC and HBV each name a
+strategy from the registry in
+[`cropro.cropping.normalizers`](src/cropro/cropping/normalizers.py)
+(`percentile`, `autoref`, `gaussian`, `zscore_clip`). The defaults are
+`t2w_normalization_method=autoref`, `adc_normalization_method=percentile` and
+`hbv_normalization_method=percentile`.
+
+By default (`do_normalization=False`) crops are saved with their **raw**
+intensities, which is the safest choice for quantitative sequences such as ADC.
+When `do_normalization=True`, each sequence's configured strategy selects how its
+intensities are scaled. A good general recipe is `zscore_clip`, which clips each
+sequence to its `[min_percentile, max_percentile]` percentiles and then applies
+instance-wise z-score normalization, independently for T2W, ADC and HBV. The
+defaults `min_percentile=0.5` and `max_percentile=99.5` match the
+[`picai_baseline`](https://github.com/DIAGNijmegen/picai_baseline) U-Net recipe:
+
+```bash
+uv run cropro --do_normalization true \
+  --t2w_normalization_method zscore_clip \
+  --adc_normalization_method zscore_clip \
+  --hbv_normalization_method zscore_clip \
+  --min_percentile 0.5 --max_percentile 99.5 ...
+```
+
+#### Per-modality normalization
+
+Different sequences benefit from different normalization. T2W has no fixed
+quantitative meaning and works well with `autoref` (AutoRef fat/muscle reference
+normalization, via [`pyAutoRef`](https://github.com/MohammedSunoqrot/pyAutoRef))
+or `gaussian`, while ADC and HBV are better kept on a robust percentile window —
+which is exactly the default configuration. Override any sequence to mix methods
+in a single run:
+
+```bash
+uv run cropro --do_normalization true \
+  --t2w_normalization_method autoref \
+  --adc_normalization_method percentile \
+  --hbv_normalization_method percentile ...
+```
+
+`autoref` is only valid for T2W (it detects fat/muscle reference tissue in the
+T2W volume); setting it for ADC or HBV raises a configuration error. AutoRef runs
+once over the full T2W volume and the derived scaling is reused for every crop.
+
+To add a new normalization method, write a `Normalizer` subclass in
+[`normalizers.py`](src/cropro/cropping/normalizers.py) and decorate it with
+`@register_normalizer`; it becomes selectable by name with no changes to the
+file-writing code.
 
 ## Project Structure
 
