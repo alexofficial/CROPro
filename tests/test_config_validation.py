@@ -64,8 +64,47 @@ def test_invalid_saved_image_type_raises():
 
 
 def test_invalid_normalization_method_raises():
-    with pytest.raises(ValueError, match="Invalid normalization_method"):
-        CropConfig(normalization_method="minmax", **BASE_REQUIRED)
+    with pytest.raises(ValueError, match="Invalid t2w_normalization_method"):
+        CropConfig(t2w_normalization_method="minmax", **BASE_REQUIRED)
+
+
+def test_invalid_per_modality_normalization_method_raises():
+    with pytest.raises(ValueError, match="Invalid adc_normalization_method"):
+        CropConfig(adc_normalization_method="minmax", **BASE_REQUIRED)
+
+
+def test_autoref_forbidden_for_adc():
+    with pytest.raises(ValueError, match="adc_normalization_method='autoref' is not supported"):
+        CropConfig(adc_normalization_method="autoref", **BASE_REQUIRED)
+
+
+def test_autoref_forbidden_for_hbv():
+    with pytest.raises(ValueError, match="hbv_normalization_method='autoref' is not supported"):
+        CropConfig(hbv_normalization_method="autoref", **BASE_REQUIRED)
+
+
+def test_autoref_allowed_for_t2w():
+    config = CropConfig(t2w_normalization_method="autoref", **BASE_REQUIRED)
+    assert config.t2w_normalization_method == "autoref"
+
+
+def test_default_per_modality_methods():
+    config = CropConfig(**BASE_REQUIRED)
+    assert config.normalization_method_for("T2W") == "autoref"
+    assert config.normalization_method_for("ADC") == "percentile"
+    assert config.normalization_method_for("HBV") == "percentile"
+
+
+def test_per_modality_method_override_takes_precedence():
+    config = CropConfig(
+        t2w_normalization_method="gaussian",
+        adc_normalization_method="zscore_clip",
+        hbv_normalization_method="percentile",
+        **BASE_REQUIRED,
+    )
+    assert config.normalization_method_for("T2W") == "gaussian"
+    assert config.normalization_method_for("ADC") == "zscore_clip"
+    assert config.normalization_method_for("HBV") == "percentile"
 
 
 def test_non_positive_pixel_spacing_raises():

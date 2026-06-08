@@ -10,13 +10,13 @@ CropMethod = Literal["center", "random", "stride"]
 PatientStatus = Literal["negative", "positive", "unknown"]
 SequenceType = Literal["T2W", "bpMRI"]
 SavedImageType = Literal["npy", "jpg", "jpeg", "png", "tiff", "tif"]
-NormalizationMethod = Literal["percentile", "autoref", "gaussian"]
+NormalizationMethod = Literal["percentile", "autoref", "gaussian", "zscore_clip"]
 
 VALID_CROP_METHODS = {"center", "random", "stride"}
 VALID_PATIENT_STATUSES = {"negative", "positive", "unknown"}
 VALID_SEQUENCE_TYPES = {"T2W", "bpMRI"}
 VALID_SAVED_IMAGE_TYPES = {"npy", "jpg", "jpeg", "png", "tiff", "tif"}
-VALID_NORMALIZATION_METHODS = {"percentile", "autoref", "gaussian"}
+VALID_NORMALIZATION_METHODS = {"percentile", "autoref", "gaussian", "zscore_clip"}
 SAVED_IMAGE_TYPE_ALIASES = {
     "nmp": "npy",
     "npm": "npy",
@@ -46,11 +46,19 @@ class CropConfig:
     sample_number: int = 12
     crop_stride: int = 32
     sequence_type: SequenceType = "T2W"
+    resample_bpmri_to_t2w: bool = False
+    resample_first: bool = False
     normalized_image: bool = True
     normalized_vmaxNumber: int = 242
     do_normalization: bool = False
-    normalization_method: NormalizationMethod = "percentile"
-    min_percentile: float = 0
+    # Normalization is configured per sequence. Each modality names a strategy
+    # registered in ``cropro.cropping.normalizers`` (percentile / autoref /
+    # gaussian / zscore_clip). ``autoref`` detects fat/muscle reference tissue in
+    # T2W images and is therefore only valid for T2W.
+    t2w_normalization_method: NormalizationMethod = "autoref"
+    adc_normalization_method: NormalizationMethod = "percentile"
+    hbv_normalization_method: NormalizationMethod = "percentile"
+    min_percentile: float = 0.5
     max_percentile: float = 99.5
     saved_image_type: SavedImageType = "tiff"
     path_to_save: str | Path = "save_crop"
@@ -82,11 +90,23 @@ class CropConfig:
                 f"Invalid saved_image_type {self.saved_image_type!r}. "
                 f"Expected one of {sorted(VALID_SAVED_IMAGE_TYPES)}."
             )
-        if self.normalization_method not in VALID_NORMALIZATION_METHODS:
-            raise ValueError(
-                f"Invalid normalization_method {self.normalization_method!r}. "
-                f"Expected one of {sorted(VALID_NORMALIZATION_METHODS)}."
-            )
+        for field_name, modality in (
+            ("t2w_normalization_method", "T2W"),
+            ("adc_normalization_method", "ADC"),
+            ("hbv_normalization_method", "HBV"),
+        ):
+            method = getattr(self, field_name)
+            if method not in VALID_NORMALIZATION_METHODS:
+                raise ValueError(
+                    f"Invalid {field_name} {method!r}. "
+                    f"Expected one of {sorted(VALID_NORMALIZATION_METHODS)}."
+                )
+            if method == "autoref" and modality != "T2W":
+                raise ValueError(
+                    f"{field_name}='autoref' is not supported: AutoRef detects fat/muscle "
+                    "reference tissue in T2W images and only applies to T2W."
+                )
+
         if self.pixel_spacing <= 0:
             raise ValueError("pixel_spacing must be greater than 0.")
 
@@ -136,6 +156,17 @@ class CropConfig:
 
         if self.patient_status == "positive" and self.seg_img_path_lesion is None:
             raise ValueError("seg_img_path_lesion is required for positive patient_status.")
+
+    def normalization_method_for(self, modality: str) -> str:
+        """Return the normalization method configured for a modality (T2W/ADC/HBV)."""
+        try:
+            return {
+                "T2W": self.t2w_normalization_method,
+                "ADC": self.adc_normalization_method,
+                "HBV": self.hbv_normalization_method,
+            }[modality.upper()]
+        except KeyError as exc:
+            raise ValueError(f"Unknown modality {modality!r}.") from exc
 
     @classmethod
     def from_mapping(cls, values: dict[str, Any]) -> CropConfig:
