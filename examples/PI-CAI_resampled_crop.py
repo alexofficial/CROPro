@@ -30,6 +30,7 @@ c_min_positive = 0.2
 do_normalization = True
 normalized_image = not do_normalization
 keep_all_slice = True
+skip_existing_slices = True
 number_of_slices_to_exclude_from_mask_gland = 1
 saved_image_type = "png"
 t2w_normalization_method = "gaussian"
@@ -101,6 +102,7 @@ def run_case(patient_id: str, stem: str) -> None:
         path_to_save=path_to_save,
         c_min_positive=c_min_positive,
         keep_all_slice=keep_all_slice,
+        skip_existing_slices=skip_existing_slices,
         number_of_slices_to_exclude_from_mask_gland=number_of_slices_to_exclude_from_mask_gland,
         t2w_normalization_method=t2w_normalization_method
     )

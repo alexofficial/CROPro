@@ -61,6 +61,23 @@ def test_cli_resample_first_defaults_false_and_parses():
     assert config.resample_first is True
 
 
+def test_cli_skip_existing_slices_defaults_false_and_parses():
+    default_config = CropConfig(orig_img_path_t2w="t2w.mha", seg_img_path="gland.nii.gz")
+    assert default_config.skip_existing_slices is False
+
+    config = parse_args(
+        [
+            "--orig_img_path_t2w",
+            "t2w.mha",
+            "--seg_img_path",
+            "gland.nii.gz",
+            "--skip_existing_slices",
+            "true",
+        ]
+    )
+    assert config.skip_existing_slices is True
+
+
 def test_cli_alias_nmp_is_normalized_to_npy():
     config = parse_args(
         [

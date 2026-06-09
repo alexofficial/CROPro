@@ -88,6 +88,14 @@ class patientCropC(croppingControllerClass):
         segmented_case_name = os.path.join(path_to_save, slice_name)
         return path_to_save, slice_number_correct, slice_name, segmented_case_name
 
+    def _slice_is_already_cropped(self, path_to_save: pathlib.Path, slice_name: str) -> bool:
+        if self.arg.sequence_type == "bpMRI":
+            has_t2w = any(path_to_save.glob(f"{slice_name}*_T2W.*"))
+            has_adc = any(path_to_save.glob(f"{slice_name}*_ADC.*"))
+            has_hbv = any(path_to_save.glob(f"{slice_name}*_HBV.*"))
+            return has_t2w and has_adc and has_hbv
+        return any(path_to_save.glob(f"{slice_name}*"))
+
     def patientCrop(self):
         if platform.system() in {"Linux", "Windows"}:
             orig_img_path_t2w = pathlib.Path(self.arg.orig_img_path_t2w)
@@ -167,6 +175,11 @@ class patientCropC(croppingControllerClass):
             path_to_save, slice_number_correct, slice_name, segmented_case_name = self.sliceName(
                 slice_number, length_slices
             )
+            if getattr(self.arg, "skip_existing_slices", False) and self._slice_is_already_cropped(
+                path_to_save, slice_name
+            ):
+                print(f"Skipping {slice_name}: already cropped")
+                continue
             prostate_gland_arr_slice = prostate_gland_arr[slice_number]
             if self.arg.patient_status == "positive":
                 prostate_lesion_arr_slice = prostate_lesion_arr[slice_number]

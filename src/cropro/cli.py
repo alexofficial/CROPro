@@ -66,6 +66,12 @@ def _add_crop_arguments(parser: argparse.ArgumentParser) -> None:
             "--resample_bpmri_to_t2w and also aligns the masks."
         ),
     )
+    parser.add_argument(
+        "--skip_existing_slices",
+        type=_boolean,
+        default=False,
+        help="Skip slices that already have cropped output files and continue with missing slices.",
+    )
     parser.add_argument("--normalized_image", type=_boolean, default=True)
     parser.add_argument("--normalized_vmaxNumber", type=int, default=242)
     parser.add_argument("--do_normalization", type=_boolean, default=False)

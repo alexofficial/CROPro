@@ -48,6 +48,7 @@ class CropConfig:
     sequence_type: SequenceType = "T2W"
     resample_bpmri_to_t2w: bool = False
     resample_first: bool = False
+    skip_existing_slices: bool = False
     normalized_image: bool = True
     normalized_vmaxNumber: int = 242
     do_normalization: bool = False
