@@ -95,6 +95,7 @@ class ResampleConfig:
 
     images_root: Path
     output_root: Path | None = None
+    reference_root: Path | None = None
     suffix: str = "_to_t2w"
     include_t2w: bool = True
     overwrite: bool = False
@@ -146,6 +147,7 @@ def align_case(
     images_root: Path,
     output_dir: Path | None,
     *,
+    reference_t2w_path: Path | None = None,
     layout: DatasetLayout,
     suffix: str = "_to_t2w",
     overwrite: bool = False,
@@ -163,7 +165,7 @@ def align_case(
     t2w_path = Path(t2w_path)
     images_root = Path(images_root)
     stem = layout.case_stem(t2w_path)
-    reference = sitk.ReadImage(str(t2w_path))
+    reference_path = Path(reference_t2w_path) if reference_t2w_path is not None else t2w_path
     written: list[Path] = []
 
     if output_dir is not None:
@@ -173,32 +175,53 @@ def align_case(
     else:
         dest_dir = None
 
-    def _write(image: sitk.Image, name: str, kind: str) -> None:
+    def _out_path(name: str) -> Path:
         if dest_dir is not None:
-            out_path = dest_dir / name
-        else:
-            base, ext = _split_suffix(name)
-            out_path = t2w_path.with_name(f"{base}{suffix}{ext}")
+            return dest_dir / name
+        base, ext = _split_suffix(name)
+        return t2w_path.with_name(f"{base}{suffix}{ext}")
+
+    def _should_skip_existing(name: str, kind: str) -> bool:
+        out_path = _out_path(name)
         if out_path.exists() and not overwrite:
             print(f"  keep {kind}: {out_path.name} already exists")
-            return
+            return True
+        return False
+
+    # The reference image is expensive to read (full MHA/NIfTI load).
+    # Defer it until we actually need to write something.
+    _reference: sitk.Image | None = None
+
+    def _get_reference() -> sitk.Image:
+        nonlocal _reference
+        if _reference is None:
+            _reference = sitk.ReadImage(str(reference_path))
+        return _reference
+
+    def _write(image: sitk.Image, name: str, kind: str) -> None:
+        out_path = _out_path(name)
         sitk.WriteImage(image, str(out_path))
         written.append(out_path)
         print(f"  wrote {kind}: {out_path.name} ({image.GetSize()})")
 
     # The T2W is the reference grid, so it is copied verbatim (no resampling).
-    if include_t2w and dest_dir is not None:
-        _write(reference, f"{stem}{layout.t2w_suffix}", "t2w")
+    if include_t2w and dest_dir is not None and not _should_skip_existing(
+        f"{stem}{layout.t2w_suffix}", "t2w"
+    ):
+        _write(_get_reference(), f"{stem}{layout.t2w_suffix}", "t2w")
 
     # Intensity scans (ADC/HBV) -> B-spline onto the T2W grid.
     for sequence, seq_suffix in (("adc", layout.adc_suffix), ("hbv", layout.hbv_suffix)):
-        moving_path = t2w_path.with_name(f"{stem}{seq_suffix}")
+        out_name = f"{stem}{seq_suffix}"
+        if _should_skip_existing(out_name, sequence):
+            continue
+        moving_path = t2w_path.with_name(out_name)
         if not moving_path.exists():
             print(f"  skip {sequence}: missing {moving_path.name}")
             continue
         moving = sitk.ReadImage(str(moving_path))
-        aligned = resample_to_reference(moving, reference, is_mask=False)
-        _write(aligned, f"{stem}{seq_suffix}", sequence)
+        aligned = resample_to_reference(moving, _get_reference(), is_mask=False)
+        _write(aligned, out_name, sequence)
 
     # Segmentation masks (whole gland + lesion) -> nearest-neighbour onto the
     # T2W grid so their labels stay aligned with the resampled scans.
@@ -208,6 +231,9 @@ def align_case(
     if layout.lesion_root is not None:
         mask_sources.append(("lesion", Path(layout.lesion_root) / f"{stem}{layout.mask_suffix}"))
     for label, mask_path in mask_sources:
+        out_name = f"{stem}_{label}{layout.mask_suffix}"
+        if _should_skip_existing(out_name, label):
+            continue
         if not mask_path.exists():
             print(f"  skip {label}: missing {mask_path}")
             continue
@@ -217,8 +243,8 @@ def align_case(
         if label == "lesion" and _is_empty_mask(mask):
             print(f"  skip {label}: no foreground in {mask_path.name}")
             continue
-        aligned_mask = resample_to_reference(mask, reference, is_mask=True)
-        _write(aligned_mask, f"{stem}_{label}{layout.mask_suffix}", label)
+        aligned_mask = resample_to_reference(mask, _get_reference(), is_mask=True)
+        _write(aligned_mask, out_name, label)
 
     return written
 
@@ -289,6 +315,12 @@ def resample_dataset(config: ResampleConfig) -> int:
     if not images_root.is_dir():
         raise FileNotFoundError(f"images_root does not exist or is not a directory: {images_root}")
 
+    reference_root = Path(config.reference_root) if config.reference_root is not None else None
+    if reference_root is not None and not reference_root.is_dir():
+        raise FileNotFoundError(
+            f"reference_root does not exist or is not a directory: {reference_root}"
+        )
+
     t2w_files = list(iter_t2w_files(images_root, config.layout))
     if not t2w_files:
         raise FileNotFoundError(
@@ -298,10 +330,31 @@ def resample_dataset(config: ResampleConfig) -> int:
     total_written = 0
     for t2w_path in t2w_files:
         print(f"Aligning {t2w_path.name}")
+        reference_t2w_path = t2w_path
+        if reference_root is not None:
+            expected_reference = reference_root / t2w_path.relative_to(images_root)
+            reference_t2w_path = expected_reference
+            if not reference_t2w_path.is_file():
+                # Allow normalized references saved with a method suffix,
+                # e.g. <stem>_t2w_autoref.mha.
+                base, ext = _split_suffix(expected_reference.name)
+                candidate = expected_reference.with_name(f"{base}_autoref{ext}")
+                if candidate.is_file():
+                    reference_t2w_path = candidate
+                else:
+                    method_candidates = sorted(expected_reference.parent.glob(f"{base}_*{ext}"))
+                    if len(method_candidates) == 1:
+                        reference_t2w_path = method_candidates[0]
+            if not reference_t2w_path.is_file():
+                raise FileNotFoundError(
+                    "Normalized T2W reference not found for "
+                    f"{t2w_path.name}: expected {reference_t2w_path}"
+                )
         written = align_case(
             t2w_path,
             images_root,
             config.output_root,
+            reference_t2w_path=reference_t2w_path,
             layout=config.layout,
             suffix=config.suffix,
             overwrite=config.overwrite,
@@ -311,85 +364,6 @@ def resample_dataset(config: ResampleConfig) -> int:
 
     print(f"\nDone. Wrote {total_written} aligned file(s) for {len(t2w_files)} case(s).")
     return total_written
-
-
-def normalize_t2w_dataset(
-    images_root: Path,
-    *,
-    layout: DatasetLayout | None = None,
-    method: str = "autoref",
-    output_root: Path | None = None,
-    overwrite: bool = False,
-    min_percentile: float = 0.5,
-    max_percentile: float = 99.5,
-    vmax_number: float = 242.0,
-) -> int:
-    """Normalize every T2W volume under ``images_root``.
-
-    Applies a registered :class:`~cropro.cropping.normalizers.Normalizer` strategy
-    (``method``) to each whole 3D T2W volume and writes the result back, keeping
-    the original geometry. This lets an expensive method such as ``autoref`` run
-    once per case here instead of being recomputed during cropping.
-
-    When ``output_root`` is ``None`` the volumes are normalized in place (each
-    ``*_t2w`` file is overwritten). Pass ``output_root`` to mirror the folder
-    structure into a separate directory; existing destination files are skipped
-    unless ``overwrite`` is set.
-
-    Returns the number of volumes written.
-    """
-    from .cropping.normalizers import NormalizationContext, get_normalizer
-
-    images_root = Path(images_root)
-    if not images_root.is_dir():
-        raise FileNotFoundError(
-            f"images_root does not exist or is not a directory: {images_root}"
-        )
-
-    layout = layout or DatasetLayout()
-    normalizer = get_normalizer(method)
-    supported = normalizer.supported_modalities
-    if supported is not None and "T2W" not in supported:
-        raise ValueError(
-            f"normalization method {method!r} does not support T2W "
-            f"(supported modalities: {sorted(supported)})."
-        )
-
-    t2w_files = list(iter_t2w_files(images_root, layout))
-    if not t2w_files:
-        raise FileNotFoundError(
-            f"No '*{layout.t2w_suffix}' files found under {images_root}"
-        )
-
-    written = 0
-    for t2w_path in t2w_files:
-        if output_root is not None:
-            dest = Path(output_root) / t2w_path.relative_to(images_root)
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            if dest.exists() and not overwrite:
-                print(f"  keep: {dest.name} already exists")
-                continue
-        else:
-            dest = t2w_path
-
-        image = sitk.ReadImage(str(t2w_path))
-        array = sitk.GetArrayFromImage(image).astype(np.float32)
-        context = NormalizationContext(
-            source_path=t2w_path,
-            min_percentile=min_percentile,
-            max_percentile=max_percentile,
-            vmax_number=vmax_number,
-        )
-        normalized_array, _, _ = normalizer.normalize(array, context)
-
-        out_image = sitk.GetImageFromArray(normalized_array.astype(np.float32))
-        out_image.CopyInformation(image)
-        sitk.WriteImage(out_image, str(dest))
-        written += 1
-        print(f"  normalized [{method}]: {dest.name} {tuple(out_image.GetSize())}")
-
-    print(f"\nDone. Normalized {written} T2W volume(s) with '{method}'.")
-    return written
 
 
 def load_ini(config_path: Path) -> dict[str, str]:
@@ -453,15 +427,27 @@ def check_bpmri_alignment(config) -> None:
     """
     if getattr(config, "sequence_type", None) != "bpMRI":
         return
-    if getattr(config, "resample_bpmri_to_t2w", False) or getattr(config, "resample_first", False):
+    if (
+        getattr(config, "resample_bpmri_to_t2w", False)
+        or getattr(config, "resample_first", False)
+        or getattr(config, "already_aligned", False)
+    ):
         return
 
     t2w = Path(config.orig_img_path_t2w)
     adc = Path(config.orig_img_path_adc)
     hbv = Path(config.orig_img_path_hbv)
-    # If any file is missing, let the normal loading path surface that error.
-    if not (t2w.exists() and adc.exists() and hbv.exists()):
-        return
+    missing: list[str] = []
+    for name, path in (("T2W", t2w), ("ADC", adc), ("HBV", hbv)):
+        if not path.is_file():
+            missing.append(f"  {name}: {path}")
+    if missing:
+        raise FileNotFoundError(
+            "bpMRI input file(s) are missing or not regular files:\n"
+            + "\n".join(missing)
+            + "\n\nMake sure the case contains T2W/ADC/HBV files, or run:\n"
+            "  cropro resample --images-root <DATASET>/images --output-root <DATASET>/images_resampled"
+        )
 
     reference = read_geometry(t2w)
     mismatches: list[str] = []
