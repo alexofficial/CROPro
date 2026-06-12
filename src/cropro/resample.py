@@ -2,7 +2,7 @@
 
 CROPro crops T2W, ADC and HBV at the same slice index and (x, y) origin, which
 only works when the three sequences share an identical geometry. In many prostate
-MRI datasets (e.g. PI-CAI) the sequences are acquired independently and differ in
+MRI datasets the sequences are acquired independently and differ in
 slice count and in-plane size/spacing, e.g.::
 
     t2w size=(384, 384, 19) spacing=(0.5, 0.5, 3.0)
@@ -13,15 +13,14 @@ volume (and the segmentation masks) into the T2W physical space so that every
 volume has matching size, spacing, origin and direction. The second pipeline
 (``cropro crop``) then crops the aligned volumes safely.
 
-The implementation mirrors the official PI-CAI preprocessing pipeline
-(``DIAGNijmegen/picai_prep``), specifically ``Sample.resample_to_first_scan()``:
+The implementation mirrors common preprocessing practice where scans are aligned
+to a reference sequence (``Sample.resample_to_first_scan()`` style):
 scans are interpolated with B-spline, masks with nearest-neighbour, and the
 reference physical metadata is copied onto the output to remove sub-voxel
 floating-point drift.
 
-The pipeline is dataset-agnostic: :class:`DatasetLayout` describes how a database
-names its sequence files and stores its masks, so the same code works for PI-CAI
-and other databases by overriding the suffixes/roots.
+The pipeline is dataset-agnostic: :class:`DatasetLayout` describes how a dataset
+names its sequence files and stores its masks.
 """
 
 from __future__ import annotations
@@ -35,7 +34,7 @@ from pathlib import Path
 import numpy as np
 import SimpleITK as sitk
 
-# Interpolators following picai_prep PreprocessingSettings defaults.
+# Interpolators for image alignment and resampling.
 SCAN_INTERPOLATOR = sitk.sitkBSpline
 LABEL_INTERPOLATOR = sitk.sitkNearestNeighbor
 
@@ -49,8 +48,8 @@ GEOMETRY_ATOL = 1e-3
 class DatasetLayout:
     """How a database names its sequence files and stores its masks.
 
-    Defaults match PI-CAI (``<patient>_<study>_t2w.mha`` etc.). Override the
-    suffixes and mask roots to support other databases.
+    The default suffixes are generic placeholders and can be overridden in
+    schema/CLI or by dataset plugins.
 
     Parameters
     ----------
@@ -72,15 +71,6 @@ class DatasetLayout:
     gland_root: Path | None = None
     lesion_root: Path | None = None
 
-    @classmethod
-    def picai(cls, images_root: Path) -> DatasetLayout:
-        """Standard PI-CAI layout with masks under ``<images_root>/../picai_labels``."""
-        labels = Path(images_root).parent / "picai_labels"
-        return cls(
-            gland_root=labels / "anatomical_delineations" / "whole_gland" / "AI" / "Bosma22b",
-            lesion_root=labels / "csPCa_lesion_delineations" / "AI" / "Bosma22a",
-        )
-
     def case_stem(self, t2w_path: Path) -> str:
         """Return the case stem (filename with the T2W suffix removed)."""
         name = Path(t2w_path).name
@@ -100,7 +90,7 @@ class ResampleConfig:
     include_t2w: bool = True
     overwrite: bool = False
     layout: DatasetLayout = field(default_factory=DatasetLayout)
-    # Directory of ``*.zip`` image archives (e.g. PI-CAI fold zips) extracted
+    # Directory of ``*.zip`` image archives extracted
     # into ``images_root`` before resampling. ``None`` disables extraction.
     archives_root: Path | None = None
 
@@ -113,7 +103,7 @@ def resample_to_reference(
 ) -> sitk.Image:
     """Resample ``moving`` onto the grid defined by ``reference``.
 
-    Follows picai_prep's ``Sample.resample_to_first_scan()``: the output shares
+    Follows ``Sample.resample_to_first_scan()`` style alignment: the output shares
     the reference's size, spacing, origin and direction, so the two images become
     voxel-wise aligned. Intensity images use B-spline interpolation; masks use
     nearest-neighbour to preserve label values. The reference's physical metadata
@@ -238,8 +228,7 @@ def align_case(
             print(f"  skip {label}: missing {mask_path}")
             continue
         mask = sitk.ReadImage(str(mask_path))
-        # PI-CAI ships lesion delineations for negative cases too, but they are
-        # all-zero. Don't write a "_lesion" file when there is no lesion.
+        # Don't write a "_lesion" file when there is no foreground lesion.
         if label == "lesion" and _is_empty_mask(mask):
             print(f"  skip {label}: no foreground in {mask_path.name}")
             continue
@@ -259,7 +248,7 @@ def extract_archives(
 ) -> int:
     """Extract every ``*.zip`` in ``archives_root`` into ``images_root``.
 
-    Used to unpack downloaded image archives (e.g. the PI-CAI fold zips) before
+    Used to unpack downloaded image archives before
     resampling. Existing files are skipped unless ``overwrite`` is set, so the
     step is safe to re-run. No-ops when ``archives_root`` is missing or empty.
 
@@ -307,7 +296,7 @@ def resample_dataset(config: ResampleConfig) -> int:
     """
     images_root = Path(config.images_root)
 
-    # Unpack any image archives (e.g. PI-CAI fold zips) into images_root first;
+    # Unpack any image archives into images_root first;
     # this also creates images_root when only the archives are present.
     if config.archives_root is not None:
         extract_archives(config.archives_root, images_root, overwrite=config.overwrite)

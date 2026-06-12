@@ -28,31 +28,6 @@ subset; all other cases are restricted to train / val.  This is dataset-
 agnostic: pass human-annotated case identifiers as ``test_eligible`` to
 guarantee that the test set is never evaluated against AI-generated labels.
 
-For PI-CAI, human expert lesion delineations live under
-``picai_labels/csPCa_lesion_delineations/Human_expert/``.  The example
-``PI-CAI_train_test_val_crop.py`` auto-detects those case stems and passes
-them (together with all negative cases) as ``test_eligible``.
-
-Typical usage::
-
-    from cropro import SplitConfig, DatasetSplit, split_cases
-
-    cases = [("10000", "10000_1000000"), ("10001", "10001_1000001"), ...]
-    positives = {("10001", "10001_1000001"), ...}
-    # Restrict the test set to human-annotated positives + all negatives:
-    human_annotated = {("10001", "10001_1000001"), ...}
-    negatives = set(cases) - positives
-
-    config = SplitConfig(train_ratio=0.70, val_ratio=0.15, test_ratio=0.15, seed=42)
-    split = split_cases(
-        cases,
-        positives=positives,
-        test_eligible=human_annotated | negatives,
-        config=config,
-    )
-    print(split.summary())
-    # -> DatasetSplit(train=..., val=..., test=..., total=...)
-
 During **training** you may use any crop method (center / random / stride).
 During **validation and testing** use *stride* so that the stride grid covers
 the entire prostate area on every slice — this is required for patient-level
@@ -190,7 +165,7 @@ def split_cases(
         ensure that the test set is only evaluated against high-quality
         (e.g. human expert) annotations.
 
-        For PI-CAI pass the union of all negative cases and the positive
+        For example, pass the union of all negative cases and the positive
         cases that have human expert lesion delineations::
 
             test_eligible = human_annotated_positives | negatives

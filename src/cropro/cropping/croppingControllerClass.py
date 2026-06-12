@@ -161,8 +161,8 @@ class croppingControllerClass:
     def _resample_onto_reference(self, itk_image, reference, is_mask):
         """Resample ``itk_image`` onto the grid defined by ``reference``.
 
-        Follows the picai_prep ``resample_to_first_scan`` recipe: the output
-        shares the reference size/spacing/origin/direction, so the images become
+        Resamples the image onto the reference grid: the output shares
+        the reference size/spacing/origin/direction, so the images become
         voxel-wise aligned. Intensity images use B-spline; masks use nearest
         neighbour. The reference metadata is copied onto the result to remove
         sub-voxel floating-point drift.
