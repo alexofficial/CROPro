@@ -24,9 +24,11 @@ from pathlib import Path
 
 from .config import CropConfig
 from .core import CROPro
+
 try:
     from .datasets import get_dataset_plugin
 except ModuleNotFoundError:
+
     def get_dataset_plugin(_name):  # type: ignore[misc]
         return None
 
