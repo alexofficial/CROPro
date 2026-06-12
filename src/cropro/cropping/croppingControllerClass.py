@@ -95,7 +95,7 @@ class croppingControllerClass:
             resampled_sitk_img = self._get_t2w_reference()
         elif align_bpmri and not is_mask and self._is_bpmri_path(filename) and self._has_t2w_reference():
             reference = self._get_t2w_reference()
-            itk_image = sitk.ReadImage(str(filename))
+            itk_image = self._read_image_checked(filename, is_mask=is_mask)
             resampled_sitk_img = self._resample_onto_reference(itk_image, reference, is_mask)
         elif resample_first and is_mask and self._has_t2w_reference():
             # resample_first also aligns the gland/lesion masks onto the T2W grid
@@ -103,15 +103,34 @@ class croppingControllerClass:
             # every image rather than relying on the masks already sharing T2W
             # geometry.
             reference = self._get_t2w_reference()
-            itk_image = sitk.ReadImage(str(filename))
+            itk_image = self._read_image_checked(filename, is_mask=is_mask)
             resampled_sitk_img = self._resample_onto_reference(itk_image, reference, is_mask)
         else:
-            itk_image = sitk.ReadImage(str(filename))
+            itk_image = self._read_image_checked(filename, is_mask=is_mask)
             resampled_sitk_img = self._resample_to_spacing(itk_image, is_mask)
 
         resampled_array = sitk.GetArrayFromImage(resampled_sitk_img)
         cache[cache_key] = resampled_array
         return resampled_array
+
+    def _read_image_checked(self, filename: Path, *, is_mask: bool):
+        """Read an image with actionable errors for missing/unreadable files."""
+        path = Path(filename)
+        if not path.is_file():
+            role = "mask" if is_mask else "image"
+            raise FileNotFoundError(
+                f"Missing {role} file: {path}. "
+                "Check your --orig_img_path_* / --seg_img_path arguments and dataset layout."
+            )
+
+        try:
+            return sitk.ReadImage(str(path))
+        except RuntimeError as exc:
+            role = "mask" if is_mask else "image"
+            raise ValueError(
+                f"Unable to read {role} file with SimpleITK: {path}. "
+                "The file may be corrupted, incomplete, or in an unsupported format."
+            ) from exc
 
     def _resample_to_spacing(self, itk_image, is_mask):
         """Resample ``itk_image`` to the configured in-plane spacing on its own grid."""
@@ -161,12 +180,16 @@ class croppingControllerClass:
         return resampled
 
     def _get_t2w_reference(self):
-        """Return the resampled T2W image used as the alignment reference (cached)."""
+        """Return the resampled T2W image used as the alignment reference (cached).
+        
+        When T2W is from the normalized folder, it's already at target spacing,
+        so resampling is a no-op. For raw T2W, it resamples to the configured spacing.
+        """
         current_path = str(self.orig_img_path_t2w)
         reference = getattr(self, "_t2w_reference", None)
         if reference is not None and getattr(self, "_t2w_reference_path", None) == current_path:
             return reference
-        t2w_image = sitk.ReadImage(current_path)
+        t2w_image = self._read_image_checked(Path(current_path), is_mask=False)
         reference = self._resample_to_spacing(t2w_image, is_mask=False)
         self._t2w_reference = reference
         self._t2w_reference_path = current_path

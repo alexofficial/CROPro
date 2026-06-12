@@ -78,8 +78,9 @@ class patientCropC(croppingControllerClass):
         path_to_save.mkdir(parents=True, exist_ok=True)
 
         slice_number_correct = int(slice_number)
+        crop_method = str(getattr(self.arg, "crop_method", "center"))
         slice_name = (
-            self.arg.sequence_type
+            crop_method
             + "_slice_"
             + str(slice_number_correct)
             + "_of_"

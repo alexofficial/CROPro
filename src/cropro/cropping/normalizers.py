@@ -217,10 +217,34 @@ def _autoref_linear_coeffs(t2w_path: str) -> tuple[float, float]:
     # Cast to float32: pyAutoRef's N4 bias-field correction does not support
     # integer pixel types (e.g. T2W stored as 16-bit unsigned int) in 3D.
     image = sitk.Cast(sitk.ReadImage(str(t2w_path)), sitk.sitkFloat32)
-    normalized_image = autoref(image)
+    try:
+        normalized_image = autoref(image)
+    except ValueError as exc:
+        # Some volumes can fail inside pyAutoRef detection with
+        # "attempt to get argmax of an empty sequence". Keep the pipeline
+        # running by using identity normalization for that case.
+        if "argmax of an empty sequence" in str(exc):
+            coeffs = (1.0, 0.0)
+            _AUTOREF_COEFF_CACHE[key] = coeffs
+            return coeffs
+        raise
 
     original = sitk.GetArrayFromImage(image).astype(np.float64).ravel()
     normalized = sitk.GetArrayFromImage(normalized_image).astype(np.float64).ravel()
+
+    # Guard against unexpected empty/invalid outputs from upstream normalization.
+    if original.size == 0 or normalized.size == 0:
+        coeffs = (1.0, 0.0)
+        _AUTOREF_COEFF_CACHE[key] = coeffs
+        return coeffs
+    finite = np.isfinite(normalized)
+    if not np.any(finite):
+        coeffs = (1.0, 0.0)
+        _AUTOREF_COEFF_CACHE[key] = coeffs
+        return coeffs
+    if not np.all(finite):
+        original = original[finite]
+        normalized = normalized[finite]
 
     # Subsample for a fast, stable least-squares fit on large volumes.
     if original.size > 200_000:

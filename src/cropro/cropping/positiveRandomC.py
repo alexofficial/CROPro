@@ -65,7 +65,7 @@ class positiveRandomC:
                             cropped_tumour_area_voxel_size,
                         )
                         randomC = rng.choice(zippedCoordinates_prostate)
-                        drawing = _imageNArray
+                        drawing = _imageNArray.copy()
 
                         segmentation = self.prostate_gland_arr_slice
                         x1 = int(randomC[0] - (self.arg.crop_image_size / 2))

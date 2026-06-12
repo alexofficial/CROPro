@@ -40,7 +40,7 @@ class negativeStrideC:
         _imageNArray = _imageNArray[self.slice_number]
 
         original_draw = self.load_resample_itk(self.orig_img_path_t2w, is_mask=False)
-        original_draw = original_draw[self.slice_number]
+        original_draw = original_draw[self.slice_number].copy()
 
         x1 = int(center_i - (full_range_i / 2))
         x2 = int(center_i + (full_range_i / 2))
