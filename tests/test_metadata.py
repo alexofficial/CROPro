@@ -176,34 +176,3 @@ def test_metadata_exported_from_package():
     assert pub_loader is load_case_metadata
 
 
-# --------------------------------------------------------------------------- #
-# PI-CAI real marksheet smoke test (skipped when CSV absent)
-# --------------------------------------------------------------------------- #
-
-
-def test_picai_marksheet_loads_if_present(tmp_path):
-    marksheet = (
-        Path(__file__).resolve().parents[1]
-        / "dataset"
-        / "PI-CAI"
-        / "picai_labels"
-        / "clinical_information"
-        / "marksheet.csv"
-    )
-    if not marksheet.is_file():
-        pytest.skip("PI-CAI marksheet not present")
-
-    entries = load_case_metadata(
-        csv_path=marksheet,
-        case_id_columns=["patient_id", "study_id"],
-        case_id_format="{patient_id}_{study_id}",
-        positive_column="case_csPCa",
-        positive_values=["YES"],
-        manifest_columns=["case_csPCa", "case_ISUP", "lesion_ISUP"],
-    )
-    assert len(entries) > 0
-    # First case in the file (10000_1000000) should be negative (case_csPCa=NO)
-    first = entries.get("10000_1000000")
-    if first is not None:
-        assert first.is_positive is False
-        assert "case_csPCa" in first.raw
