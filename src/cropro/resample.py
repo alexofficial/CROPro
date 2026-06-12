@@ -34,7 +34,7 @@ from pathlib import Path
 import numpy as np
 import SimpleITK as sitk
 
-# Interpolators for image alignment and resampling.
+# Interpolators following picai_prep PreprocessingSettings defaults.
 SCAN_INTERPOLATOR = sitk.sitkBSpline
 LABEL_INTERPOLATOR = sitk.sitkNearestNeighbor
 

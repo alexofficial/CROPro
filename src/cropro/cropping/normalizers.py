@@ -139,8 +139,10 @@ class GaussianNormalizer(Normalizer):
 class ZScoreClipNormalizer(Normalizer):
     """Instance-wise z-score normalization with percentile clipping.
 
-    Normalizes each sequence independently by clipping intensities to the
-    ``[min_percentile, max_percentile]`` range (default 0.5 and 99.5) and then
+    Mirrors the PI-CAI state-of-the-art recipe used by the official
+    ``picai_baseline`` U-Net (and nnU-Net's MR scheme): each sequence is
+    normalized independently by clipping intensities to the
+    ``[min_percentile, max_percentile]`` range (SOTA uses 0.5 and 99.5) and then
     applying z-score normalization ``(x - mean) / std`` on the clipped crop.
     This approach is commonly used in medical imaging preprocessing.
     """

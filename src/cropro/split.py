@@ -165,7 +165,7 @@ def split_cases(
         ensure that the test set is only evaluated against high-quality
         (e.g. human expert) annotations.
 
-        For example, pass the union of all negative cases and the positive
+        For PI-CAI pass the union of all negative cases and the positive
         cases that have human expert lesion delineations::
 
             test_eligible = human_annotated_positives | negatives
