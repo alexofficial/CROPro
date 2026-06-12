@@ -1,10 +1,10 @@
 # CROPro
 
-CROPro is a Python package for automated cropping of prostate MRI volumes. It was developed for prostate MR preprocessing workflows where a model or reviewer needs consistent image patches around the prostate gland or clinically significant prostate cancer lesions.
+CROPro is built for prostate MRI AI teams where model performance is often limited by data preparation, not network architecture. It turns heterogeneous T2W/bpMRI volumes and gland/lesion masks into consistent, spatially aligned, model-ready crops for clinically significant prostate cancer (csPCa) training and patient-level evaluation.
 
 The package supports:
 
-- two selectable pipelines: a `crop` pipeline and a `resample` pipeline
+- four CLI pipelines: `download`, `crop`, `resample`, and `normalize`
 - `center`, `random`, and `stride` crop strategies
 - T2W-only and bpMRI cropping workflows
 - negative, positive, and unknown patient-status workflows
@@ -27,101 +27,205 @@ If you use CROPro, please cite the paper listed in [Citation](#citation):
 - [PI-CAI Dataset Setup](#pi-cai-dataset-setup)
 - [Command Line](#command-line)
 - [Configuration Reference](#configuration-reference)
+- [Dataset Splitting](#dataset-splitting)
 - [Development](#development)
 - [PyPI Release](#pypi-release)
 - [Citation](#citation)
 
 ## Installation
 
-This repository uses [`uv`](https://docs.astral.sh/uv/) for dependency management.
+Install as a package (recommended):
 
-Install `uv` if needed:
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Clone the repository and install the environment:
-
-```bash
-git clone https://github.com/alexofficial/CROPro.git
-cd CROPro
-uv sync
-```
-
-Check that the CLI is available:
-
-```bash
-uv run cropro --help
-```
-
-For development tools such as tests and linting:
-
-```bash
-uv sync --extra dev
-```
-
-When CROPro is published to PyPI, users will be able to install it in a project with:
+Install CROPro into your project environment:
 
 ```bash
 uv add cropro
 ```
 
-For CLI-only use after PyPI publication:
+Or install as a standalone CLI tool:
 
 ```bash
 uv tool install cropro
-cropro --help
 ```
 
-## PyPI Release
-
-This repository is configured to publish to PyPI through GitHub Actions using Trusted Publishing.
-
-### One-Time Setup
-
-1. On PyPI, create a project named `cropro` (or claim it if it already exists under your account).
-2. In PyPI project settings, configure a Trusted Publisher for this GitHub repository and workflow:
-  - owner/repo: `alexofficial/CROPro`
-  - workflow filename: `.github/workflows/pypi-publish.yml`
-  - environment: `pypi`
-
-### Release Flow
-
-1. Update version in `pyproject.toml`.
-2. Commit and push to `main`.
-3. Create a GitHub release (for example tag `v0.1.1`).
-4. The `Publish to PyPI` workflow builds the package and uploads it to PyPI.
-
-### Optional Local Validation
+Then discover all available commands/options:
 
 ```bash
-python -m build
-python -m twine check dist/*
+cropro --help
+cropro download --help
+cropro crop --help
+cropro resample --help
+cropro normalize --help
 ```
+
+Download datasets directly from CLI (no repo scripts required):
+
+```bash
+# PI-CAI fold 0 + labels
+cropro download --dataset picai --folds 0
+
+# Prostate158 (built-in Zenodo URL)
+cropro download --dataset prostate158
+
+# Prostate158 (optional explicit URL override)
+cropro download --dataset prostate158 \
+  --url https://zenodo.org/api/records/6481141/files/prostate158_train.zip/content
+```
+
+### Simplest run (resample -> crop)
+
+No INI file is required. For users who installed via `uv add cropro`, run with
+explicit paths:
+
+```bash
+# 1) align ADC/HBV/masks to T2W first (no config file)
+cropro resample \
+  --images-root dataset/PI-CAI/images \
+  --output-root dataset/PI-CAI/images_resampled
+
+# 2) crop one case from the aligned data
+cropro crop --crop_method stride --patient_status negative --sequence_type bpMRI \
+  --orig_img_path_t2w dataset/PI-CAI/images_resampled/10001/10001_1000001_t2w.mha \
+  --orig_img_path_adc dataset/PI-CAI/images_resampled/10001/10001_1000001_adc.mha \
+  --orig_img_path_hbv dataset/PI-CAI/images_resampled/10001/10001_1000001_hbv.mha \
+  --seg_img_path dataset/PI-CAI/images_resampled/10001/10001_1000001_gland.nii.gz \
+  --pixel_spacing 0.4 --crop_image_size 128 --crop_stride 32 \
+  --saved_image_type png --path_to_save outputs/10001_1000001
+```
+
+If you do have `config/resample_paths.ini`, this is the shorter equivalent:
+
+```bash
+# 1) align ADC/HBV/masks to T2W first
+cropro resample --config config/resample_paths.ini
+```
+
+If you are using the built-in PI-CAI schema, you can run the full pipeline in
+one command:
+
+```bash
+cropro crop --schema config/dataset_picai.toml
+```
+
+### Crop multiple patients (folder/batch mode)
+
+`cropro crop` also supports folder-level batch mode directly via
+`--images-root` and `--output-root` (no example script required):
+
+```bash
+cropro crop \
+  --images-root dataset/PI-CAI/images_resampled \
+  --output-root dataset/cropro/PI-CAI/PICAI_stride_0.4_128 \
+  --sequence_type bpMRI --crop_method stride \
+  --pixel_spacing 0.4 --crop_image_size 128 --crop_stride 32 \
+  --saved_image_type png
+```
+
+For custom databases (for example Prostate158-style naming), override suffixes
+and mask roots:
+
+```bash
+cropro crop \
+  --images-root data/Prostate158/images \
+  --output-root outputs/Prostate158 \
+  --sequence_type T2W \
+  --t2w-suffix _t2.nii.gz \
+  --mask-suffix .nii.gz \
+  --gland-root data/Prostate158/masks/gland \
+  --crop_method center --saved_image_type png
+```
+
+Batch mode can auto-detect positive/negative cases from lesion masks
+(`--auto-patient-status true`, default) and can auto-detect
+`tumor_label_level` from lesion labels (`--auto-tumor-label-level true`).
+
+You can still use the provided Python scripts if you prefer:
+
+```bash
+# Batch crop all cases under dataset/PI-CAI/images_resampled
+python examples/PI-CAI_resampled_crop.py
+
+# Batch crop + split into train/val/test
+python examples/PI-CAI_train_test_val_crop.py
+```
+
+Both scripts iterate through patient folders automatically and run CROPro case
+by case with consistent settings.
 
 ## Pipelines
 
-CROPro exposes two pipelines as command-line subcommands. Pick the one that
-matches what you need; they can be combined (resample first, then crop).
+CROPro exposes four pipelines as command-line subcommands. Pick the one that
+matches what you need; they can be combined (for example: normalize T2W first,
+then resample, then crop).
 
 | Pipeline | Command | What it does |
 | --- | --- | --- |
+| Download | `cropro download` | Downloads and extracts supported datasets via CLI. Built-in PI-CAI and Prostate158 support; `custom` via one or more `--url` values. |
 | Resample | `cropro resample` | Resamples a whole database onto each case's T2W grid and writes the aligned copies to disk. Use this to prepare a dataset before cropping. |
+| Normalize | `cropro normalize` | Normalizes whole T2W volumes across a dataset (for example AutoRef, percentile, gaussian, or zscore_clip) either in-place or into a separate output folder. |
 | Crop | `cropro crop` | Crops T2W (and optionally ADC/HBV) around the gland or lesion. For bpMRI it verifies that ADC/HBV are aligned to T2W and stops with a clear message if they are not. |
 
 Running `cropro` without a subcommand defaults to `crop`, so existing commands
 keep working unchanged.
+
+### Pipeline overview at a glance
+
+Use this as a quick decision guide:
+
+| Goal | Minimum pipeline | Recommended pipeline |
+| --- | --- | --- |
+| Crop T2W only (`sequence_type=T2W`) | `crop` | `crop` |
+| Crop bpMRI (`sequence_type=bpMRI`) | `crop` + on-the-fly alignment (`--resample_bpmri_to_t2w true`) | `normalize` -> `resample` -> `crop` |
+| Build a reusable aligned dataset | `resample` | `normalize` -> `resample` |
+| Normalize all T2W volumes in a folder | `normalize` | `normalize` |
+
+For bpMRI, **alignment to T2W is required** before cropping ADC/HBV together
+with T2W. You can satisfy this in two ways:
+
+1. Run `cropro resample` first (recommended for reproducible dataset prep).
+2. Let crop do on-the-fly alignment with `--resample_bpmri_to_t2w true` (or
+   `--resample_first true` to also align masks before cropping).
+
+If neither is enabled and the bpMRI volumes are misaligned, crop stops with an
+actionable error instead of producing wrong crops.
+
+```mermaid
+flowchart TD
+  A[Start] --> B{sequence_type}
+  B -->|T2W| C[cropro crop]
+  B -->|bpMRI| D{Already aligned to T2W grid?}
+  D -->|Yes| C
+  D -->|No| E[Run cropro resample]
+  E --> F{Normalize T2W volumes first?}
+  F -->|Yes| G[cropro normalize or schema pre-step]
+  F -->|No| H[cropro crop]
+  G --> H
+  C --> I[Saved crops]
+  H --> I
+```
 
 ### Resample Pipeline
 
 The resample pipeline aligns every case in a database onto its T2W geometry. It
 is database-agnostic: the file layout is described by a configurable
 `DatasetLayout`, which defaults to the PI-CAI conventions but can be pointed at
-any dataset through CLI flags or an INI file.
+any dataset through a **dataset schema**, CLI flags, or an INI file.
+
+When `--normalize-t2w-first true` is enabled, CROPro first normalizes each T2W
+volume and writes the resulting `.mha` files under
+`<images-root>/../normalized/<method>_t2w` by default. Resampling then uses
+those normalized T2W files as the reference grid while still reading ADC/HBV and
+masks from the original dataset tree. For PI-CAI, the built-in schema defaults
+this path to `dataset/PI-CAI/normalized/autoref_t2w`.
 
 ```bash
-# Resample the PI-CAI database into a new folder
+# Resample the PI-CAI database using a dataset schema (all paths in one file)
+uv run cropro resample --schema config/dataset_picai.toml
+
+# Resample Prostate158 with its built-in schema
+uv run cropro resample --schema config/dataset_prostate158.toml
+
+# Or pass paths directly
 uv run cropro resample \
   --images-root dataset/PI-CAI/images \
   --output-root dataset/PI-CAI/images_resampled
@@ -138,8 +242,74 @@ unpacks it into `--images-root` before aligning. Existing files are skipped, so
 the step is safe to re-run. Point `--archives-root` at a different directory, or
 pass `--archives-root none` to disable extraction.
 
-To target a different database, override the layout. Either pass the suffixes and
-mask roots directly:
+#### Dataset schema (recommended for custom datasets)
+
+A dataset schema is a TOML file that describes the complete layout of a dataset
+in one place — image paths, mask locations, file naming conventions, and default
+crop settings. CROPro ships ready-made schemas for PI-CAI and Prostate158 under
+`config/`.
+
+```toml
+# config/my_dataset.toml
+
+[dataset]
+name = "MyDataset"
+
+[paths]
+images_root  = "dataset/MyDataset/images"
+output_root  = "dataset/MyDataset/images_resampled"
+normalized_t2w_root = "dataset/MyDataset/normalized/autoref_t2w"
+gland_root   = "dataset/MyDataset/masks/gland"   # or "none" to skip
+lesion_root  = "dataset/MyDataset/masks/lesion"  # or "none" to skip
+archives_root = "none"
+cropro_root  = "dataset/MyDataset/cropped_images"
+
+[naming]
+t2w_suffix  = "_t2w.nii.gz"
+adc_suffix  = "_adc.nii.gz"
+hbv_suffix  = "_hbv.nii.gz"
+mask_suffix = ".nii.gz"
+
+[crop]
+sequence_type    = "bpMRI"
+pixel_spacing    = 0.4
+crop_image_size  = 128
+crop_method      = "random"
+saved_image_type = "png"
+
+[split]
+enabled         = true
+split_level     = "patient"
+human_labels_root = ""
+
+[pipeline]
+normalize_before_resample = true
+normalize_method = "autoref"
+resample_dataset = true
+```
+
+All sections are optional and fall back to CROPro defaults when omitted.
+
+Use the schema across all pipelines. With the example above, one command does
+dataset-level T2W normalization first, then resampling, then train/val/test
+splitting, then cropping:
+
+```bash
+# One command: resample -> split -> crop
+cropro crop --schema config/my_dataset.toml
+
+# Built-in PI-CAI schema
+cropro crop --schema config/dataset_picai.toml
+
+# CLI flags always override schema values
+cropro resample --schema config/my_dataset.toml --output-root /tmp/resampled
+```
+
+The crop output path is derived from `cropro_root` and the run name, for
+example `dataset/MyDataset/cropped_images/MyDataset_random_0.4_128/`.
+
+To target a different database without a schema, pass the suffixes and mask roots
+directly:
 
 ```bash
 uv run cropro resample \
@@ -152,7 +322,7 @@ uv run cropro resample \
   --lesion-root data/my_dataset/masks/lesion
 ```
 
-or keep the paths in an INI file and pass `--config`:
+or keep only the paths in the legacy INI file and pass `--config`:
 
 ```ini
 # config/resample_paths.ini
@@ -167,8 +337,19 @@ lesion_root = data/my_dataset/masks/lesion
 uv run cropro resample --config config/resample_paths.ini
 ```
 
-CLI flags take precedence over values in the INI file, so you can keep shared
+CLI flags take precedence over schema and INI values, so you can keep shared
 paths in the file and override individual fields on the command line.
+
+The same pre-step can be enabled directly on the resample CLI:
+
+```bash
+uv run cropro resample \
+  --images-root dataset/PI-CAI/images \
+  --output-root dataset/PI-CAI/images_resampled \
+  --normalize-t2w-first true \
+  --normalize-method autoref \
+  --normalized-t2w-root dataset/PI-CAI/normalized/autoref_t2w
+```
 
 ### Crop Pipeline
 
@@ -177,6 +358,27 @@ The crop pipeline is the original CROPro behaviour. See
 bpMRI it first checks that ADC and HBV are aligned to T2W; if they are not, it
 stops and tells you to run the resample pipeline (or to let it resample on the
 fly). See [Aligning ADC/HBV to T2W (bpMRI)](#aligning-adchbv-to-t2w-bpmri).
+
+### Normalize Pipeline
+
+The normalize pipeline applies one normalization method to every discovered T2W
+volume in a dataset. It can normalize in-place or write outputs into a mirrored
+directory structure.
+
+```bash
+# Normalize T2W volumes in place with AutoRef
+uv run cropro normalize \
+  --images-root dataset/PI-CAI/images_resampled \
+  --method autoref
+
+# Normalize into a separate folder with zscore_clip
+uv run cropro normalize \
+  --images-root dataset/PI-CAI/images_resampled \
+  --output-root dataset/PI-CAI/images_resampled_norm \
+  --method zscore_clip \
+  --min-percentile 0.5 \
+  --max-percentile 99.5
+```
 
 ## Quick Start
 
@@ -285,57 +487,9 @@ All images and masks should already be spatially aligned. CROPro resamples the i
 
 ## Visual Examples
 
-### Negative Or Unknown Workflow
-
-For negative and unknown cases, the prostate gland mask defines the region to crop.
-
-<p>
-  <img src="./assets/readme/segmentation/negative/PICAI/10001_1000001/T2W/T2W_axial0007.png" width="220" alt="T2W prostate gland segmentation example" />
-  <img src="./assets/readme/segmentation/negative/PICAI/10001_1000001/ADC/ADC_axial0007.png" width="220" alt="ADC prostate gland segmentation example" />
-  <img src="./assets/readme/segmentation/negative/PICAI/10001_1000001/HBV/HBV_axial0007.png" width="220" alt="HBV prostate gland segmentation example" />
-</p>
-
-Stride-cropped bpMRI output at `0.4` mm/pixel. With `crop_image_size=128`, the crop covers about `51.2 x 51.2` mm.
-
-<p>
-  <img src="./assets/readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_160_166_T2W.png" width="128" alt="Negative T2W crop at 0.4 mm pixel spacing" />
-  <img src="./assets/readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_160_166_ADC.png" width="128" alt="Negative ADC crop at 0.4 mm pixel spacing" />
-  <img src="./assets/readme/negative/PICAI_stride_0.4_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_160_166_HBV.png" width="128" alt="Negative HBV crop at 0.4 mm pixel spacing" />
-</p>
-
-The same case at `0.5` mm/pixel covers about `64.0 x 64.0` mm and includes more surrounding context.
-
-<p>
-  <img src="./assets/readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_T2W.png" width="128" alt="Negative T2W crop at 0.5 mm pixel spacing" />
-  <img src="./assets/readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_ADC.png" width="128" alt="Negative ADC crop at 0.5 mm pixel spacing" />
-  <img src="./assets/readme/negative/PICAI_stride_0.5_128_negative/10001_1000001/bpMRI_slice_7_of_21_1_cord_128_132_HBV.png" width="128" alt="Negative HBV crop at 0.5 mm pixel spacing" />
-</p>
-
-### Positive Workflow
-
-For positive cases, CROPro uses the prostate gland mask plus a lesion mask. A crop is saved only when the lesion area inside the crop satisfies the configured threshold.
-
-<p>
-  <img src="./assets/readme/segmentation/positive/PICAI/10117_1000117/human/t2w-human/axial15_seg.png" width="220" alt="T2W lesion segmentation example" />
-  <img src="./assets/readme/segmentation/positive/PICAI/10117_1000117/human/adc-human/axial15_seg.png" width="220" alt="ADC lesion segmentation example" />
-  <img src="./assets/readme/segmentation/positive/PICAI/10117_1000117/human/hbv-human/axial15_seg.png" width="220" alt="HBV lesion segmentation example" />
-</p>
-
-Stride-cropped bpMRI output at `0.4` mm/pixel:
-
-<p>
-  <img src="./assets/readme/positive/PICAI_stride_0.4_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_157_136_T2W.png" width="128" alt="Positive T2W crop at 0.4 mm pixel spacing" />
-  <img src="./assets/readme/positive/PICAI_stride_0.4_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_157_136_ADC.png" width="128" alt="Positive ADC crop at 0.4 mm pixel spacing" />
-  <img src="./assets/readme/positive/PICAI_stride_0.4_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_157_136_HBV.png" width="128" alt="Positive HBV crop at 0.4 mm pixel spacing" />
-</p>
-
-The same positive case at `0.5` mm/pixel:
-
-<p>
-  <img src="./assets/readme/positive/PICAI_stride_0.5_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_126_99_T2W.png" width="128" alt="Positive T2W crop at 0.5 mm pixel spacing" />
-  <img src="./assets/readme/positive/PICAI_stride_0.5_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_126_99_ADC.png" width="128" alt="Positive ADC crop at 0.5 mm pixel spacing" />
-  <img src="./assets/readme/positive/PICAI_stride_0.5_128_positive/10117_1000117/bpMRI_slice_15_of_27_1_cord_126_99_HBV.png" width="128" alt="Positive HBV crop at 0.5 mm pixel spacing" />
-</p>
+Example segmentation and crop outputs are available in `assets/readme/`.
+The quickest way to inspect behavior is to run the examples in
+[`examples/`](examples/) and view the generated crops in your output folder.
 
 ## Pixel Spacing
 
@@ -350,114 +504,61 @@ With `crop_image_size=128`:
 
 A `0.4` mm/pixel crop is tighter around the anatomy. A `0.5` mm/pixel crop covers a wider physical region and can preserve more surrounding anatomical context.
 
-```python
-from cropro import CROPro, CropConfig
-
-tight_crop = CropConfig(
-    crop_method="center",
-    patient_status="negative",
-    sequence_type="T2W",
-    orig_img_path_t2w="data/patient_001/t2w.nii.gz",
-    seg_img_path="data/patient_001/prostate_gland_mask.nii.gz",
-    pixel_spacing=0.4,
-    crop_image_size=128,
-    path_to_save="outputs/patient_001_spacing_0.4",
-)
-
-wide_crop = CropConfig(
-    crop_method="center",
-    patient_status="negative",
-    sequence_type="T2W",
-    orig_img_path_t2w="data/patient_001/t2w.nii.gz",
-    seg_img_path="data/patient_001/prostate_gland_mask.nii.gz",
-    pixel_spacing=0.5,
-    crop_image_size=128,
-    path_to_save="outputs/patient_001_spacing_0.5",
-)
-
-CROPro(tight_crop).run()
-CROPro(wide_crop).run()
-```
-
 ## PI-CAI Dataset Setup
 
-The runnable examples use the official PI-CAI Public Training and Development Dataset. Images are hosted on Zenodo, and annotations are maintained in the `DIAGNijmegen/picai_labels` repository.
+The examples use the PI-CAI Public Training/Development data.
 
-The default download fetches public image fold 0, which is about 5.4 GB, and clones the labels:
-
-```bash
-uv sync
-bash scripts/download_dataset.sh
-```
-
-The script writes data under `dataset/PI-CAI/`. This directory is ignored by git.
-
-The image download is resumable because the script uses `curl -C -`. If the download is interrupted, run the same command again:
+Quick setup:
 
 ```bash
-bash scripts/download_dataset.sh
+cropro download --dataset picai --folds 0
 ```
 
-To download all five public image folds, about 26.9 GB:
+Data is written under `dataset/PI-CAI/`.
+
+Useful variants:
 
 ```bash
-CROPRO_PICAI_FOLDS="0 1 2 3 4" bash scripts/download_dataset.sh
+# download all public image folds (~26.9 GB)
+cropro download --dataset picai --folds 0 1 2 3 4
+
+# custom dataset location
+cropro download --dataset picai --dataset-root /path/to/PI-CAI
 ```
 
-To place the PI-CAI data somewhere else:
-
-```bash
-CROPRO_DATASET_ROOT="/path/to/PI-CAI" bash scripts/download_dataset.sh
-```
-
-Expected layout:
-
-```text
-dataset/PI-CAI/
-  archives/
-    picai_public_images_fold0.zip
-  images/
-    10001/
-      10001_1000001_t2w.mha
-      10001_1000001_adc.mha
-      10001_1000001_hbv.mha
-  picai_labels/
-    anatomical_delineations/whole_gland/AI/Bosma22b/
-    csPCa_lesion_delineations/human_expert/resampled/
-```
-
-Run the examples:
+Run examples:
 
 ```bash
 uv run python examples/PI-CAI_negative_crop.py
 uv run python examples/PI-CAI_positive_crop.py
 ```
 
-Or run both:
-
-```bash
-bash scripts/examples.sh
-```
-
-PI-CAI notes:
+References:
 
 - Public images: `https://zenodo.org/records/6624726`
 - Labels: `https://github.com/DIAGNijmegen/picai_labels`
-- Official image names use `[patient_id]_[study_id]_t2w.mha`, `[patient_id]_[study_id]_adc.mha`, and `[patient_id]_[study_id]_hbv.mha`.
-- Whole-gland masks are used for `negative` and `unknown` crops.
-- Positive crops use the whole-gland mask plus the csPCa lesion mask. Set `tumor_label_level` to the lesion value used by the selected label file. The bundled PI-CAI positive example uses case `10032_1000032`, whose lesion label is `3`.
 
 ## Command Line
 
-After installation, use the `cropro` command. It has two subcommands, `crop`
-and `resample` (see [Pipelines](#pipelines)); running `cropro` with no
-subcommand defaults to `crop`. From this repository, prefix commands with
-`uv run`.
+After installation, use the `cropro` command. It has four subcommands:
+`download`, `crop`, `resample`, and `normalize` (see [Pipelines](#pipelines)). Running
+`cropro` with no subcommand defaults to `crop`. From this repository, prefix
+commands with `uv run`.
+
+List all available options:
+
+```bash
+uv run cropro --help
+uv run cropro download --help
+uv run cropro crop --help
+uv run cropro resample --help
+uv run cropro normalize --help
+```
 
 Negative or unknown patient:
 
 ```bash
-uv run cropro \
+uv run cropro crop \
   --crop_method stride \
   --patient_status negative \
   --sequence_type T2W \
@@ -469,30 +570,12 @@ uv run cropro \
   --saved_image_type png \
   --path_to_save outputs/patient_001
 ```
-
-Positive patient:
-
-```bash
-uv run cropro \
-  --crop_method stride \
-  --patient_status positive \
-  --sequence_type T2W \
-  --orig_img_path_t2w data/patient_002/t2w.nii.gz \
-  --seg_img_path data/patient_002/prostate_gland_mask.nii.gz \
-  --seg_img_path_lesion data/patient_002/lesion_mask.nii.gz \
-  --tumor_label_level 1 \
-  --c_min_positive 0.2 \
-  --pixel_spacing 0.4 \
-  --crop_image_size 128 \
-  --crop_stride 32 \
-  --saved_image_type png \
-  --path_to_save outputs/patient_002
-```
+For positive and bpMRI examples, see [Quick Start](#quick-start).
 
 Boolean CLI arguments require explicit values:
 
 ```bash
-uv run cropro --keep_all_slice false --do_normalization true ...
+uv run cropro crop --keep_all_slice false --do_normalization true ...
 ```
 
 ## Output
@@ -534,6 +617,7 @@ These variables are accepted by the Python `CropConfig` class and by CLI argumen
 | `sequence_type` | `T2W` | `T2W` for T2W-only crops, or `bpMRI` for T2W/ADC/HBV crops. |
 | `resample_bpmri_to_t2w` | `False` | When `True`, resample ADC/HBV onto the T2W grid on-the-fly so all sequences align before cropping. |
 | `resample_first` | `False` | When `True`, run a pre-step that resamples **all** images (T2W, ADC, HBV and the segmentation masks) onto the common T2W grid before cropping. Implies `resample_bpmri_to_t2w` and also aligns the masks. |
+| `skip_existing_slices` | `False` | Skip slice processing when output files for that slice already exist. Useful for resumable runs. |
 | `normalized_image` | `True` | Set to `True` when the source image is already normalized. |
 | `normalized_vmaxNumber` | `242` | Maximum value used by the legacy normalization/saving path. |
 | `do_normalization` | `False` | Normalize image intensity before saving. |
@@ -542,13 +626,14 @@ These variables are accepted by the Python `CropConfig` class and by CLI argumen
 | `hbv_normalization_method` | `percentile` | Normalization strategy for HBV (`percentile`, `gaussian`, `zscore_clip`; `autoref` is T2W-only). |
 | `min_percentile` | `0.5` | Lower percentile for intensity clipping/normalization. |
 | `max_percentile` | `99.5` | Upper percentile for intensity clipping/normalization. |
-| `saved_image_type` | `tiff` | Output type: `png`, `jpg`, `jpeg`, `tiff`, `tif`, `npy`, or `nmp`. |
+| `saved_image_type` | `tiff` | Output type: `png`, `jpg`, `jpeg`, `tiff`, `tif`, `npy`, `nmp`, or `npm` (`nmp`/`npm` map to `npy`). |
 | `path_to_save` | `save_crop` | Output directory. |
 | `c_min_positive` | `0.2` | Minimum lesion overlap required for saving a positive crop. |
 | `c_min_negative` | `1` | Minimum gland coverage rule used by negative crop selection. |
 | `percentage_of_allowed_overlapping_betweeing_gland_lesions_mask` | `50.0` | Allowed overlap percentage between gland and lesion masks for mask consistency checks. |
 | `number_of_slices_to_exclude_from_mask_gland` | `1` | Number of gland-mask edge slices to exclude from crop selection. |
 | `keep_all_slice` | `True` | Keep all selected slices instead of applying slice filtering. |
+| `random_seed` | `None` | Optional integer seed for deterministic random crop sampling. |
 
 ### Aligning ADC/HBV to T2W (bpMRI)
 
@@ -643,6 +728,119 @@ To add a new normalization method, write a `Normalizer` subclass in
 `@register_normalizer`; it becomes selectable by name with no changes to the
 file-writing code.
 
+## Dataset Splitting
+
+CROPro includes a patient-level dataset splitter that divides cases into
+**train / validation / test** subsets and generates crops with the appropriate
+strategy for each.
+
+Splitting is always at the **patient level** so that all crops from the same
+patient end up in a single subset and there is no data leakage.
+
+### Why different crop methods per subset?
+
+| Subset | Recommended crop method | Reason |
+| --- | --- | --- |
+| **Train** | `random` (or `center`) | Stochastic sampling gives data augmentation and exposes the model to varied prostate sub-regions per slice. |
+| **Validation** | `stride` | Covers the entire prostate area on every slice without gaps, which is required for patient-level scoring (per-crop predictions are aggregated back into one patient score). |
+| **Test** | `stride` | Same reason as validation — complete coverage is mandatory for fair patient-level evaluation. |
+
+### Split level
+
+The `split_level` option controls which **slices** are included when generating
+crops for each subset:
+
+| Level | `keep_all_slice` | What is included |
+| --- | --- | --- |
+| `"patient"` (default) | `True` | Every slice that contains the prostate gland mask is cropped. **Required for patient-level inference.** |
+| `"lesion"` | `False` | Only lesion-containing slices (positive cases) or central gland slices (negative cases). Useful for slice/image-level training. |
+
+### Annotation quality filter
+
+Passing a `test_eligible` set to `split_cases()` restricts which cases may appear
+in the test subset. Cases not in the set go to train/val only. This prevents
+AI-annotated labels from contaminating the test set — a requirement for fair
+clinical evaluation.
+
+For PI-CAI, human expert lesion delineations live under:
+
+```text
+dataset/PI-CAI/picai_labels/csPCa_lesion_delineations/Human_expert/
+```
+
+The example script auto-detects which case stems have a file there and restricts
+the test set to those human-annotated positives plus all negative cases.
+
+### Python API
+
+```python
+from cropro import SplitConfig, DatasetSplit, split_cases
+
+cases = [("10000", "10000_1000000"), ("10001", "10001_1000001"), ...]
+positives = {("10001", "10001_1000001"), ...}
+human_annotated = {("10001", "10001_1000001"), ...}   # from Human_expert/ folder
+negatives = set(cases) - positives
+
+config = SplitConfig(
+    train_ratio=0.70,
+    val_ratio=0.15,
+    test_ratio=0.15,
+    seed=42,
+    stratify=True,        # preserve positive fraction in each subset
+    split_level="patient",  # "patient" or "lesion"
+)
+
+split: DatasetSplit = split_cases(
+    cases,
+    positives=positives,
+    test_eligible=human_annotated | negatives,  # None = all cases eligible
+    config=config,
+)
+print(split.summary())
+# DatasetSplit(train=..., val=..., test=..., total=...)
+print(split.train)   # list of (patient_id, stem) tuples
+print(split.val)
+print(split.test)
+```
+
+### Running the full PI-CAI example
+
+After running the resample pipeline (see [Aligning ADC/HBV to T2W](#aligning-adchbv-to-t2w-bpmri)):
+
+```bash
+# Resample the dataset first (if not already done)
+uv run cropro resample --config config/resample_paths.ini
+
+# Crop and split into train / val / test
+uv run python examples/PI-CAI_train_test_val_crop.py
+```
+
+The script-level knobs are intentionally simple: train/eval crop methods,
+`split_level`, annotation filter flag, and split ratios/seed.
+
+Outputs are written to:
+
+```text
+dataset/cropro/PI-CAI/<run_name>/
+  train/<patient_id>/<stem>/   ← random crops, all resampled slices
+  val/<patient_id>/<stem>/     ← stride crops, all resampled slices
+  test/<patient_id>/<stem>/    ← stride crops, human-annotated only
+```
+
+Each crop filename encodes its origin (sequence type, slice number, coordinates
+and modality suffix), so per-crop predictions can be mapped back to the original
+prostate volume for patient-level aggregation.
+
+### Adapting to other datasets
+
+The splitter is dataset-agnostic. For a dataset without a dedicated
+annotation-quality field:
+
+- Pass `test_eligible=None` (default) to allow all cases in the test set.
+- Or build your own set from a CSV / JSON manifest and pass it as
+  `test_eligible`.
+- Replace `human_annotated_cases()` in the example with your own lookup logic.
+
 ## Project Structure
 
 ```text
@@ -662,6 +860,30 @@ CROPro/
 ```
 
 ## Development
+
+### Source installation (for contributors)
+
+This repository uses [`uv`](https://docs.astral.sh/uv/) for dependency management.
+
+Install `uv` if needed:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Clone the repository and install dependencies:
+
+```bash
+git clone https://github.com/alexofficial/CROPro.git
+cd CROPro
+uv sync
+```
+
+Check that the CLI is available in the repo environment:
+
+```bash
+uv run cropro --help
+```
 
 Install development dependencies:
 

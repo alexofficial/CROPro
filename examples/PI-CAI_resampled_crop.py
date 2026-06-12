@@ -68,8 +68,9 @@ def run_case(patient_id: str, stem: str) -> None:
 
     required = [orig_img_path_t2w, orig_img_path_adc, orig_img_path_hbv, seg_img_path_gland]
     if not all(path.exists() for path in required):
-        print(f"Skipping {stem}: missing one or more required files")
-        return
+        raise FileNotFoundError(
+            f"missing one or more required files for {patient_id}/{stem}"
+        )
 
     # A lesion file is only written for positive cases; auto-detect the label
     # threshold so AI lesion masks labelled 1, 2, 3, ... are not dropped.
@@ -111,5 +112,24 @@ def run_case(patient_id: str, stem: str) -> None:
 
 
 if __name__ == "__main__":
-    for patient_id, stem in discover_cases(images_root):
-        run_case(patient_id, stem)
+    cases = discover_cases(images_root)
+    failed_cases: list[tuple[str, str, str]] = []
+    ok = 0
+
+    print(f"Discovered {len(cases)} case(s) under {images_root}")
+    for patient_id, stem in cases:
+        try:
+            run_case(patient_id, stem)
+            ok += 1
+        except Exception as exc:  # noqa: BLE001
+            failed_cases.append((patient_id, stem, f"{type(exc).__name__}: {exc}"))
+            print(f"[ERROR] {patient_id}/{stem}: {exc}")
+
+    print("\n" + "=" * 72)
+    print(f"Crop run finished: ok={ok}, failed={len(failed_cases)}, total={len(cases)}")
+    if failed_cases:
+        print("Failed cases:")
+        for patient_id, stem, reason in failed_cases:
+            print(f"  - {patient_id}/{stem} -> {reason}")
+    else:
+        print("No failed cases.")
