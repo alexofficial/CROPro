@@ -1,0 +1,245 @@
+# CROPro pipeline schema — generic template
+#
+# Copy this file, rename it for your dataset (e.g. my_dataset.toml), fill in
+# the paths, and run any pipeline with:
+#
+#   cropro download  --dataset mydataset --url https://host/path/dataset.zip
+#   cropro resample  --schema config/my_dataset.toml
+#   cropro normalize --schema config/my_dataset.toml
+#   cropro crop      --schema config/my_dataset.toml
+#
+# CLI flags always override the values here, so you can keep shared settings
+# in this file and override individual ones on the command line.
+#
+# You can also generate and modify this file entirely in Python:
+#
+#   from cropro import PipelineConfig
+#
+#   cfg = (
+#       PipelineConfig("MyDataset")
+#       .paths(images_root="...", output_root="...", gland_root="...")
+#       .naming(t2w_suffix="_t2w.mha")
+#       .crop(sequence_type="bpMRI", pixel_spacing=0.4, crop_image_size=128)
+#       .normalization(t2w="autoref", adc="percentile", hbv="percentile")
+#       .split(train_ratio=0.70, val_ratio=0.15, test_ratio=0.15, seed=42)
+#       .pipeline(resample_dataset=True, normalize_before_resample=True)
+#   )
+#   cfg.save("config/my_dataset.toml")
+#
+# ─── When to use this TOML file vs. the INI file ─────────────────────────────
+#
+#   config/pipeline.toml   (this file)
+#       Full dataset definition — paths, naming suffixes, crop settings, split
+#       ratios, pipeline flags, and normalization.  Works with every pipeline:
+#       resample, normalize, crop, and split.  Use this whenever you want a
+#       single, reusable config for a dataset.
+#
+#   config/resample_paths.ini
+#       Paths-only shortcut for the *resample* pipeline.  Simpler to fill in
+#       quickly for a one-off resampling job, but only controls folder paths and
+#       a handful of resample flags — no crop, split, or normalization settings.
+#       Use the TOML schema for anything more than that.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+[dataset]
+# Informational name embedded in crop output folder names.
+# e.g.  cropro_root/MyDataset_random_0.4_128/
+name = "MyDataset"
+
+# Optional local dataset plugin name loaded from .cropro_user/dataset_plugins.py
+# (or CROPRO_DATASET_PLUGIN_FILE). Plugins can define dataset-specific
+# resample defaults and custom download handlers outside the committed repo.
+# plugin = "mydataset"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# [paths] — where your data lives and where outputs are written
+# ──────────────────────────────────────────────────────────────────────────────
+[paths]
+# Root directory containing per-case image folders.
+# The resample pipeline searches this recursively for files matching t2w_suffix.
+images_root = "dataset/MyDataset/images"
+
+# Where resampled (T2W-aligned) copies are written.
+# Each case folder inside here will contain the aligned T2W, ADC, HBV, and masks.
+output_root = "dataset/MyDataset/images_resampled"
+
+# Directory of *.zip image archives.  The resample pipeline unpacks them into
+# images_root before aligning.  Existing files are skipped, so re-running is safe.
+# Set to "none" to disable archive unpacking.
+# Leave empty to default to <images_root>/../archives.
+archives_root = "none"
+
+# Whole-gland segmentation mask directory.
+# Files must be named <case_stem><mask_suffix> (e.g. CASE_A01.nii.gz).
+# Set to "none" to skip gland masks.
+gland_root = "none"
+
+# Lesion segmentation mask directory.
+# Set to "none" to skip lesion masks (all cases treated as negative).
+lesion_root = "none"
+
+# Base folder for all CROPro crop outputs.
+# Each run creates: cropro_root/<Name>_<method>_<spacing>_<size>/
+cropro_root = "dataset/MyDataset/cropped_images"
+
+# Destination for pre-normalised T2W volumes written by --normalize-t2w-first.
+# Defaults to <images_root>/../normalized/<method>_t2w when omitted.
+# normalized_t2w_root = "dataset/MyDataset/normalized/autoref_t2w"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# [naming] — filename suffixes used to discover images and masks
+# ──────────────────────────────────────────────────────────────────────────────
+[naming]
+# Suffix appended to the case stem to find T2W files.
+# e.g. for stem "CASE_A01" and suffix "_t2w.mha" -> "CASE_A01_t2w.mha"
+t2w_suffix  = "_t2w.mha"
+
+# Suffix for ADC files.
+adc_suffix  = "_adc.mha"
+
+# Suffix for HBV/DWI files.
+hbv_suffix  = "_hbv.mha"
+
+# Suffix shared by all mask files (gland and lesion).
+mask_suffix = ".nii.gz"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# [crop] — crop strategy, size, and normalization
+# ──────────────────────────────────────────────────────────────────────────────
+[crop]
+# "T2W" for T2W-only crops, "bpMRI" to crop T2W + ADC + HBV together.
+sequence_type = "bpMRI"
+
+# Target in-plane resolution in mm/pixel before cropping.
+# 0.4 mm is tighter around the anatomy; 0.5 mm covers a wider physical area.
+pixel_spacing = 0.4
+
+# Crop width and height in pixels.
+crop_image_size = 128
+
+# Grid step in pixels when crop_method = "stride".
+crop_stride = 32
+
+# Crop strategy:
+#   "center"  — one crop centred on the prostate bounding box per slice.
+#   "random"  — N random crops inside the gland mask per slice (training).
+#   "stride"  — regular tiling of the prostate area (val/test).
+# Train: "random" or "center".  Val/test: "stride" (full volumetric coverage).
+crop_method = "random"
+
+# Number of random crops per slice when crop_method = "random".
+sample_number = 12
+
+# Output file format: "png", "tiff", "npy", "jpg", "jpeg", "tif".
+saved_image_type = "png"
+
+# Normalise crop intensities before saving.
+# When true, each modality uses the strategy set below.
+do_normalization = true
+
+# ── Per-modality normalization strategies ────────────────────────────────────
+#
+# Choose one strategy per modality:
+#   "autoref"     — AutoRef fat/muscle reference normalization (T2W only).
+#   "percentile"  — clip to [min_percentile, max_percentile] for display.
+#   "gaussian"    — z-score clipped to [-3, 3], rescaled to [0, 1].
+#   "zscore_clip" — percentile clip then z-score.
+#
+# "autoref" is not valid for ADC or HBV (raises a config error).
+t2w_normalization_method = "autoref"
+adc_normalization_method = "percentile"
+hbv_normalization_method = "percentile"
+
+# Percentile windows used when do_normalization = true.
+# These control the intensity range that maps to the full display range.
+t2w_min_percentile = 0.5
+t2w_max_percentile = 99.5
+adc_min_percentile = 0.5
+adc_max_percentile = 99.5
+hbv_min_percentile = 0.5
+hbv_max_percentile = 99.9
+
+# Minimum lesion overlap fraction required to keep a positive crop.
+c_min_positive = 0.2
+
+# Include every gland slice (true) or only lesion/central slices (false).
+# Set true for patient-level inference; false for lesion-focused training.
+keep_all_slice = true
+
+# Skip writing slices whose output files already exist.
+# Useful for resuming an interrupted crop run.
+skip_existing_slices = true
+
+# Number of gland-mask edge slices to exclude from crop selection.
+number_of_slices_to_exclude_from_mask_gland = 1
+
+# ──────────────────────────────────────────────────────────────────────────────
+# [split] — patient-level train / val / test splitting
+# ──────────────────────────────────────────────────────────────────────────────
+[split]
+# Set to false to skip splitting and write all crops to one flat folder.
+enabled = true
+
+# Fractions for each subset — must sum to 1.0.
+# Val and test always use stride cropping + unknown patient status so that
+# every prostate slice is covered for patient-level inference.
+train_ratio = 0.70
+val_ratio   = 0.15
+test_ratio  = 0.15
+
+# Random seed for reproducible case shuffling.
+seed = 42
+
+# Preserve the positive fraction in each subset (stratified split).
+stratify = true
+
+# "patient" — all gland slices (required for patient-level inference).
+# "lesion"  — only lesion / central slices (slice-level training).
+split_level = "patient"
+
+# Optional: restrict the TEST set to cases in this directory.
+# Only cases with a file here are eligible for test; AI-annotated positives
+# are restricted to train/val.  Leave empty to allow all cases in test.
+human_labels_root = ""
+
+# ──────────────────────────────────────────────────────────────────────────────
+# [pipeline] — high-level execution flags for one-command workflows
+# ──────────────────────────────────────────────────────────────────────────────
+[pipeline]
+# When true, one "cropro crop --schema" command first resamples the dataset,
+# then splits and crops the resampled output.
+resample_dataset = true
+
+# When true, normalize every T2W volume before resampling and use those
+# normalized files as the T2W reference during alignment.
+normalize_before_resample = false
+
+# Normalization method used by normalize_before_resample.
+normalize_method = "autoref"
+
+# Set true when images_root already contains resampled data so the resample
+# pre-step inside "cropro crop --schema" is skipped.
+already_resampled = false
+
+# ──────────────────────────────────────────────────────────────────────────────
+# [metadata] — optional CSV-driven per-case label information
+# ──────────────────────────────────────────────────────────────────────────────
+# [metadata]
+# Path to a CSV file with per-case clinical information.
+# csv_path = "dataset/MyDataset/labels/marksheet.csv"
+#
+# Columns whose values are joined to build the case stem (case identifier).
+# case_id_columns = ["patient_id", "study_id"]
+#
+# Python format string to build the stem from the id columns.
+# case_id_format = "{patient_id}_{study_id}"
+#
+# Column whose value classifies a case as positive.
+# positive_column = "case_csPCa"
+#
+# Values in positive_column that mean positive (case-insensitive).
+# positive_values = ["YES"]
+#
+# CSV columns to include in the split manifest file.
+# manifest_columns = ["case_csPCa", "case_ISUP", "lesion_ISUP"]

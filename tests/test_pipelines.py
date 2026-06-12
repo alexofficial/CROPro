@@ -1,4 +1,4 @@
-"""Tests for the CROPro pipelines (crop vs resample) and bpMRI alignment check."""
+﻿"""Tests for the CROPro pipelines (crop vs resample) and bpMRI alignment check."""
 
 from __future__ import annotations
 
@@ -77,10 +77,10 @@ def test_crop_with_schema_dispatches_to_batch_mode(monkeypatch):
 
     monkeypatch.setattr("cropro.cli._run_crop_dataset", fake_run_crop_dataset)
 
-    main(["crop", "--schema", "config/dataset_picai.toml"])
+    main(["crop", "--schema", "config/pipeline.toml"])
 
     assert called["pipeline"] == "crop"
-    assert Path(called["schema"]).name == "dataset_picai.toml"
+    assert Path(called["schema"]).name == "pipeline.toml"
 
 
 # --------------------------------------------------------------------------- #
@@ -90,21 +90,21 @@ def test_crop_with_schema_dispatches_to_batch_mode(monkeypatch):
 
 def test_dataset_layout_case_stem_default():
     layout = DatasetLayout()
-    assert layout.case_stem("10000_1000000_t2w.mha") == "10000_1000000"
+    assert layout.case_stem("CASE_A01_t2w.mha") == "CASE_A01"
 
 
-def test_dataset_layout_picai_roots(tmp_path):
-    images_root = tmp_path / "PI-CAI" / "images"
-    layout = DatasetLayout.picai(images_root)
-    assert layout.gland_root.name == "Bosma22b"
-    assert layout.lesion_root.name == "Bosma22a"
+def test_dataset_layout_default_has_no_mask_roots():
+    layout = DatasetLayout()
+    assert layout.gland_root is None
+    assert layout.lesion_root is None
 
 
 def test_schema_driven_crop_output_root_uses_cropro_root():
-    schema = DatasetSchema.load(Path(__file__).resolve().parents[1] / "config" / "dataset_picai.toml")
+    schema = DatasetSchema.load(Path(__file__).resolve().parents[1] / "config" / "pipeline.toml")
     namespace = argparse.Namespace(crop_method="random", pixel_spacing=0.4, crop_image_size=128, output_root=None)
-    assert _build_crop_run_name(namespace, schema) == "PICAI_random_0.4_128"
-    assert _resolve_crop_output_root(namespace, schema) == Path("dataset/PI-CAI/cropped_images/PICAI_random_0.4_128")
+    expected = "MyDataset_random_0_4_128_t2w_0_5_99_5_adc_0_5_99_5_hbv_0_5_99_9"
+    assert _build_crop_run_name(namespace, schema) == expected
+    assert _resolve_crop_output_root(namespace, schema) == Path(f"dataset/MyDataset/cropped_images/{expected}")
 
 
 def test_schema_label_roots_are_used_for_crop(monkeypatch):
@@ -113,7 +113,7 @@ def test_schema_label_roots_are_used_for_crop(monkeypatch):
     captured = {}
 
     def fake_discover(namespace, parser):
-        return [Path("dataset/PI-CAI/images_resampled/10000/10000_1000000_t2w.mha")]
+        return [Path("dataset/MyDataset/images_resampled/CASE/CASE_A01_t2w.mha")]
 
     def fake_resolve(t2w_path, namespace):
         captured["gland_root"] = namespace.gland_root
@@ -121,12 +121,12 @@ def test_schema_label_roots_are_used_for_crop(monkeypatch):
         return (
             {
                 "t2w": t2w_path,
-                "adc": t2w_path.with_name("10000_1000000_adc.mha"),
-                "hbv": t2w_path.with_name("10000_1000000_hbv.mha"),
-                "gland": Path(namespace.gland_root) / "10000_1000000.nii.gz",
-                "lesion": Path(namespace.lesion_root) / "10000_1000000.nii.gz",
+                "adc": t2w_path.with_name("CASE_A01_adc.mha"),
+                "hbv": t2w_path.with_name("CASE_A01_hbv.mha"),
+                "gland": Path(namespace.gland_root) / "CASE_A01.nii.gz",
+                "lesion": Path(namespace.lesion_root) / "CASE_A01.nii.gz",
             },
-            "10000_1000000",
+            "CASE_A01",
         )
 
     monkeypatch.setattr("cropro.cli._discover_batch_cases", fake_discover)
@@ -134,8 +134,8 @@ def test_schema_label_roots_are_used_for_crop(monkeypatch):
     monkeypatch.setattr("cropro.cli._crop_single_case", lambda *args, **kwargs: "skip:dummy")
 
     namespace = argparse.Namespace(
-        schema=Path("config/dataset_picai.toml"),
-        images_root=Path("dataset/PI-CAI/images_resampled"),
+        schema=Path("config/pipeline.toml"),
+        images_root=Path("dataset/MyDataset/images_resampled"),
         output_root=None,
         gland_root=None,
         lesion_root=None,
@@ -159,18 +159,19 @@ def test_schema_label_roots_are_used_for_crop(monkeypatch):
 
     _run_crop_dataset(namespace, argparse.ArgumentParser())
 
-    assert "whole_gland" in str(captured["gland_root"])
-    assert str(captured["gland_root"]).endswith("Bosma22b")
-    assert str(captured["lesion_root"]).endswith("Bosma22a")
+    normalized_gland = str(captured["gland_root"]).replace("\\", "/")
+    normalized_lesion = str(captured["lesion_root"]).replace("\\", "/")
+    assert normalized_gland.endswith("dataset/MyDataset/masks/gland")
+    assert normalized_lesion.endswith("dataset/MyDataset/masks/lesion")
 
 
 def test_resolve_case_paths_prefers_nonempty_human_lesion_then_ai(tmp_path):
     from cropro.cli import _resolve_case_paths
 
     images_root = tmp_path / "images_resampled"
-    case_dir = images_root / "10000"
+    case_dir = images_root / "CASE"
     case_dir.mkdir(parents=True)
-    t2w = case_dir / "10000_1000000_t2w.mha"
+    t2w = case_dir / "CASE_A01_t2w.mha"
     _make_image(t2w, (4, 4, 3), (0.5, 0.5, 3.0))
 
     human_root = tmp_path / "human"
@@ -179,8 +180,8 @@ def test_resolve_case_paths_prefers_nonempty_human_lesion_then_ai(tmp_path):
     ai_root.mkdir()
 
     # Case A: human has foreground -> use human.
-    _make_mask(human_root / "10000_1000000.nii.gz", (4, 4, 3), (0.5, 0.5, 3.0), foreground=True)
-    _make_mask(ai_root / "10000_1000000.nii.gz", (4, 4, 3), (0.5, 0.5, 3.0), foreground=True)
+    _make_mask(human_root / "CASE_A01.nii.gz", (4, 4, 3), (0.5, 0.5, 3.0), foreground=True)
+    _make_mask(ai_root / "CASE_A01.nii.gz", (4, 4, 3), (0.5, 0.5, 3.0), foreground=True)
 
     namespace = argparse.Namespace(
         t2w_suffix="_t2w.mha",
@@ -194,31 +195,31 @@ def test_resolve_case_paths_prefers_nonempty_human_lesion_then_ai(tmp_path):
     )
 
     paths, _ = _resolve_case_paths(t2w, namespace)
-    assert Path(paths["lesion"]) == human_root / "10000_1000000.nii.gz"
+    assert Path(paths["lesion"]) == human_root / "CASE_A01.nii.gz"
 
     # Case B: human exists but empty -> fall back to AI.
-    t2w_b = case_dir / "10000_1000001_t2w.mha"
+    t2w_b = case_dir / "CASE_A02_t2w.mha"
     _make_image(t2w_b, (4, 4, 3), (0.5, 0.5, 3.0))
-    _make_mask(human_root / "10000_1000001.nii.gz", (4, 4, 3), (0.5, 0.5, 3.0), foreground=False)
-    _make_mask(ai_root / "10000_1000001.nii.gz", (4, 4, 3), (0.5, 0.5, 3.0), foreground=True)
+    _make_mask(human_root / "CASE_A02.nii.gz", (4, 4, 3), (0.5, 0.5, 3.0), foreground=False)
+    _make_mask(ai_root / "CASE_A02.nii.gz", (4, 4, 3), (0.5, 0.5, 3.0), foreground=True)
 
     paths_b, _ = _resolve_case_paths(t2w_b, namespace)
-    assert Path(paths_b["lesion"]) == ai_root / "10000_1000001.nii.gz"
+    assert Path(paths_b["lesion"]) == ai_root / "CASE_A02.nii.gz"
 
 
 def test_resolve_case_paths_uses_normalized_t2w_override(tmp_path):
     from cropro.cli import _resolve_case_paths
 
     images_root = tmp_path / "images_resampled"
-    case_dir = images_root / "10000"
+    case_dir = images_root / "CASE"
     case_dir.mkdir(parents=True)
-    t2w = case_dir / "10000_1000000_t2w.mha"
+    t2w = case_dir / "CASE_A01_t2w.mha"
     _make_image(t2w, (4, 4, 3), (0.5, 0.5, 3.0))
 
     normalized_root = tmp_path / "normalized"
-    norm_case = normalized_root / "10000"
+    norm_case = normalized_root / "CASE"
     norm_case.mkdir(parents=True)
-    normalized_t2w = norm_case / "10000_1000000_t2w_autoref.mha"
+    normalized_t2w = norm_case / "CASE_A01_t2w_autoref.mha"
     _make_image(normalized_t2w, (4, 4, 3), (0.5, 0.5, 3.0))
 
     namespace = argparse.Namespace(
@@ -236,19 +237,19 @@ def test_resolve_case_paths_uses_normalized_t2w_override(tmp_path):
 
     paths, _ = _resolve_case_paths(t2w, namespace, images_root=images_root)
     assert Path(paths["t2w"]) == normalized_t2w
-    assert Path(paths["adc"]) == case_dir / "10000_1000000_adc.mha"
-    assert Path(paths["hbv"]) == case_dir / "10000_1000000_hbv.mha"
+    assert Path(paths["adc"]) == case_dir / "CASE_A01_adc.mha"
+    assert Path(paths["hbv"]) == case_dir / "CASE_A01_hbv.mha"
 
 
 def test_default_split_output_root_is_ai_ready_dataset():
-    schema = DatasetSchema.load(Path(__file__).resolve().parents[1] / "config" / "dataset_picai.toml")
+    schema = DatasetSchema.load(Path(__file__).resolve().parents[1] / "config" / "pipeline.toml")
     run_output = _resolve_crop_output_root(
         argparse.Namespace(crop_method="random", pixel_spacing=0.4, crop_image_size=128, output_root=None),
         schema,
     )
     namespace = argparse.Namespace(split_output_root=None)
     split_root = getattr(namespace, "split_output_root", None) or (Path(run_output).parent / "ai_ready_dataset")
-    assert split_root == Path("dataset/PI-CAI/cropped_images/ai_ready_dataset")
+    assert split_root == Path("dataset/MyDataset/cropped_images/ai_ready_dataset")
 
 
 def test_split_manifest_is_saved(monkeypatch, tmp_path):
@@ -256,9 +257,9 @@ def test_split_manifest_is_saved(monkeypatch, tmp_path):
     from cropro.split import SplitConfig
 
     images_root = tmp_path / "images_resampled"
-    case_dir = images_root / "10000"
+    case_dir = images_root / "CASE"
     case_dir.mkdir(parents=True)
-    t2w = case_dir / "10000_1000000_t2w.mha"
+    t2w = case_dir / "CASE_A01_t2w.mha"
     t2w.write_text("dummy", encoding="utf-8")
 
     monkeypatch.setattr("cropro.cli._discover_batch_cases", lambda namespace, parser: [t2w])
@@ -267,12 +268,12 @@ def test_split_manifest_is_saved(monkeypatch, tmp_path):
         return (
             {
                 "t2w": t2w_path,
-                "adc": t2w_path.with_name("10000_1000000_adc.mha"),
-                "hbv": t2w_path.with_name("10000_1000000_hbv.mha"),
-                "gland": t2w_path.with_name("10000_1000000_gland.nii.gz"),
-                "lesion": t2w_path.with_name("10000_1000000_lesion.nii.gz"),
+                "adc": t2w_path.with_name("CASE_A01_adc.mha"),
+                "hbv": t2w_path.with_name("CASE_A01_hbv.mha"),
+                "gland": t2w_path.with_name("CASE_A01_gland.nii.gz"),
+                "lesion": t2w_path.with_name("CASE_A01_lesion.nii.gz"),
             },
-            "10000_1000000",
+            "CASE_A01",
         )
 
     monkeypatch.setattr("cropro.cli._resolve_case_paths", fake_resolve_case_paths)
@@ -301,11 +302,11 @@ def test_split_manifest_is_saved(monkeypatch, tmp_path):
     manifest = split_output_root / "split_manifest.json"
     assert manifest.exists()
     data = json.loads(manifest.read_text(encoding="utf-8"))
-    assert data["run_name"] == "dataset_random_0.4_128"
+    assert data["run_name"] == "dataset_random_0_4_128_t2w_0_5_99_5_adc_0_5_99_5_hbv_0_5_99_9"
     assert data["split_config"]["split_level"] == "patient"
     assert len(data["subsets"]["train"]) == 1
-    assert data["subsets"]["train"][0]["patient_id"] == "10000"
-    assert data["subsets"]["train"][0]["case_id"] == "10000_1000000"
+    assert data["subsets"]["train"][0]["patient_id"] == "CASE"
+    assert data["subsets"]["train"][0]["case_id"] == "CASE_A01"
     assert data["subsets"]["train"][0]["label"] == "negative"
     assert data["subsets"]["train"][0]["human_labeled"] is False
     assert data["subset_stats"]["train"]["positive"] == 0
@@ -379,10 +380,10 @@ def test_schema_already_resampled_uses_output_root_for_crop(monkeypatch, tmp_pat
 
 
 def test_schema_driven_resample_output_root_stays_separate_from_crop_root():
-    schema = DatasetSchema.load(Path(__file__).resolve().parents[1] / "config" / "dataset_picai.toml")
+    schema = DatasetSchema.load(Path(__file__).resolve().parents[1] / "config" / "pipeline.toml")
     namespace = argparse.Namespace(resample_output_root=None)
-    resolved = _resolve_resample_output_root(namespace, schema, Path("dataset/PI-CAI/images"))
-    assert resolved == Path("dataset/PI-CAI/images_resampled")
+    resolved = _resolve_resample_output_root(namespace, schema, Path("dataset/MyDataset/images"))
+    assert resolved == Path("dataset/MyDataset/images_resampled")
 
 
 # --------------------------------------------------------------------------- #
@@ -400,13 +401,13 @@ def test_geometries_match_true_and_false(tmp_path):
 
 def _bpmri_config(tmp_path, *, aligned: bool, **overrides):
     grid = dict(size=(10, 10, 3), spacing=(0.5, 0.5, 3.0))
-    t2w = _make_image(tmp_path / "10000_1000000_t2w.mha", **grid)
-    hbv = _make_image(tmp_path / "10000_1000000_hbv.mha", **grid)
-    gland = _make_image(tmp_path / "10000_1000000_gland.nii.gz", **grid)
+    t2w = _make_image(tmp_path / "CASE_A01_t2w.mha", **grid)
+    hbv = _make_image(tmp_path / "CASE_A01_hbv.mha", **grid)
+    gland = _make_image(tmp_path / "CASE_A01_gland.nii.gz", **grid)
     if aligned:
-        adc = _make_image(tmp_path / "10000_1000000_adc.mha", **grid)
+        adc = _make_image(tmp_path / "CASE_A01_adc.mha", **grid)
     else:
-        adc = _make_image(tmp_path / "10000_1000000_adc.mha", size=(5, 5, 3), spacing=(1.0, 1.0, 3.0))
+        adc = _make_image(tmp_path / "CASE_A01_adc.mha", size=(5, 5, 3), spacing=(1.0, 1.0, 3.0))
     return CropConfig(
         sequence_type="bpMRI",
         orig_img_path_t2w=t2w,
@@ -459,15 +460,15 @@ def test_check_bpmri_alignment_raises_when_bpmri_file_missing(tmp_path):
 
 def test_resample_dataset_aligns_every_output(tmp_path):
     images_root = tmp_path / "images"
-    case_dir = images_root / "10000"
+    case_dir = images_root / "CASE"
     case_dir.mkdir(parents=True)
-    t2w = _make_image(case_dir / "10000_1000000_t2w.mha", (10, 10, 3), (0.5, 0.5, 3.0))
-    _make_image(case_dir / "10000_1000000_adc.mha", (5, 5, 3), (1.0, 1.0, 3.0))
-    _make_image(case_dir / "10000_1000000_hbv.mha", (6, 6, 3), (0.8, 0.8, 3.0))
+    t2w = _make_image(case_dir / "CASE_A01_t2w.mha", (10, 10, 3), (0.5, 0.5, 3.0))
+    _make_image(case_dir / "CASE_A01_adc.mha", (5, 5, 3), (1.0, 1.0, 3.0))
+    _make_image(case_dir / "CASE_A01_hbv.mha", (6, 6, 3), (0.8, 0.8, 3.0))
 
     gland_root = tmp_path / "labels"
     gland_root.mkdir()
-    _make_image(gland_root / "10000_1000000.nii.gz", (5, 5, 3), (1.0, 1.0, 3.0))
+    _make_image(gland_root / "CASE_A01.nii.gz", (5, 5, 3), (1.0, 1.0, 3.0))
 
     output_root = tmp_path / "out"
     config = ResampleConfig(
@@ -480,12 +481,12 @@ def test_resample_dataset_aligns_every_output(tmp_path):
     assert written == 4  # t2w + adc + hbv + gland
 
     reference = read_geometry(t2w)
-    out_case = output_root / "10000"
+    out_case = output_root / "CASE"
     for name in (
-        "10000_1000000_t2w.mha",
-        "10000_1000000_adc.mha",
-        "10000_1000000_hbv.mha",
-        "10000_1000000_gland.nii.gz",
+        "CASE_A01_t2w.mha",
+        "CASE_A01_adc.mha",
+        "CASE_A01_hbv.mha",
+        "CASE_A01_gland.nii.gz",
     ):
         assert (out_case / name).exists()
         assert geometries_match(read_geometry(out_case / name), reference)
@@ -493,17 +494,17 @@ def test_resample_dataset_aligns_every_output(tmp_path):
 
 def test_resample_dataset_skips_existing_outputs_before_resampling(tmp_path, monkeypatch):
     images_root = tmp_path / "images"
-    case_dir = images_root / "10000"
+    case_dir = images_root / "CASE"
     case_dir.mkdir(parents=True)
-    _make_image(case_dir / "10000_1000000_t2w.mha", (10, 10, 3), (0.5, 0.5, 3.0))
-    _make_image(case_dir / "10000_1000000_adc.mha", (5, 5, 3), (1.0, 1.0, 3.0))
-    _make_image(case_dir / "10000_1000000_hbv.mha", (6, 6, 3), (0.8, 0.8, 3.0))
+    _make_image(case_dir / "CASE_A01_t2w.mha", (10, 10, 3), (0.5, 0.5, 3.0))
+    _make_image(case_dir / "CASE_A01_adc.mha", (5, 5, 3), (1.0, 1.0, 3.0))
+    _make_image(case_dir / "CASE_A01_hbv.mha", (6, 6, 3), (0.8, 0.8, 3.0))
 
-    output_case = tmp_path / "out" / "10000"
+    output_case = tmp_path / "out" / "CASE"
     output_case.mkdir(parents=True)
-    _make_image(output_case / "10000_1000000_t2w.mha", (10, 10, 3), (0.5, 0.5, 3.0))
-    _make_image(output_case / "10000_1000000_adc.mha", (10, 10, 3), (0.5, 0.5, 3.0))
-    _make_image(output_case / "10000_1000000_hbv.mha", (10, 10, 3), (0.5, 0.5, 3.0))
+    _make_image(output_case / "CASE_A01_t2w.mha", (10, 10, 3), (0.5, 0.5, 3.0))
+    _make_image(output_case / "CASE_A01_adc.mha", (10, 10, 3), (0.5, 0.5, 3.0))
+    _make_image(output_case / "CASE_A01_hbv.mha", (10, 10, 3), (0.5, 0.5, 3.0))
 
     def _fail_if_called(*_args, **_kwargs):
         raise AssertionError("resample_to_reference should not be called when outputs already exist")
@@ -535,14 +536,14 @@ def _make_mask(path, size, spacing, *, foreground: bool):
 
 def test_resample_dataset_skips_empty_lesion_mask(tmp_path):
     images_root = tmp_path / "images"
-    case_dir = images_root / "10000"
+    case_dir = images_root / "CASE"
     case_dir.mkdir(parents=True)
-    _make_image(case_dir / "10000_1000000_t2w.mha", (10, 10, 3), (0.5, 0.5, 3.0))
+    _make_image(case_dir / "CASE_A01_t2w.mha", (10, 10, 3), (0.5, 0.5, 3.0))
 
     lesion_root = tmp_path / "lesions"
     lesion_root.mkdir()
     # Negative case: lesion delineation exists but is all-zero.
-    _make_mask(lesion_root / "10000_1000000.nii.gz", (10, 10, 3), (0.5, 0.5, 3.0), foreground=False)
+    _make_mask(lesion_root / "CASE_A01.nii.gz", (10, 10, 3), (0.5, 0.5, 3.0), foreground=False)
 
     output_root = tmp_path / "out"
     config = ResampleConfig(
@@ -553,18 +554,18 @@ def test_resample_dataset_skips_empty_lesion_mask(tmp_path):
 
     written = resample_dataset(config)
     assert written == 1  # only t2w; no empty lesion file
-    assert not (output_root / "10000" / "10000_1000000_lesion.nii.gz").exists()
+    assert not (output_root / "CASE" / "CASE_A01_lesion.nii.gz").exists()
 
 
 def test_resample_dataset_writes_nonempty_lesion_mask(tmp_path):
     images_root = tmp_path / "images"
-    case_dir = images_root / "10000"
+    case_dir = images_root / "CASE"
     case_dir.mkdir(parents=True)
-    _make_image(case_dir / "10000_1000000_t2w.mha", (10, 10, 3), (0.5, 0.5, 3.0))
+    _make_image(case_dir / "CASE_A01_t2w.mha", (10, 10, 3), (0.5, 0.5, 3.0))
 
     lesion_root = tmp_path / "lesions"
     lesion_root.mkdir()
-    _make_mask(lesion_root / "10000_1000000.nii.gz", (10, 10, 3), (0.5, 0.5, 3.0), foreground=True)
+    _make_mask(lesion_root / "CASE_A01.nii.gz", (10, 10, 3), (0.5, 0.5, 3.0), foreground=True)
 
     output_root = tmp_path / "out"
     config = ResampleConfig(
@@ -575,7 +576,7 @@ def test_resample_dataset_writes_nonempty_lesion_mask(tmp_path):
 
     written = resample_dataset(config)
     assert written == 2  # t2w + lesion
-    assert (output_root / "10000" / "10000_1000000_lesion.nii.gz").exists()
+    assert (output_root / "CASE" / "CASE_A01_lesion.nii.gz").exists()
 
 
 # --------------------------------------------------------------------------- #
@@ -594,9 +595,9 @@ def _make_ramp_t2w(path, size, spacing):
 
 def test_normalize_t2w_dataset_in_place(tmp_path):
     images_root = tmp_path / "images"
-    case_dir = images_root / "10000"
+    case_dir = images_root / "CASE"
     case_dir.mkdir(parents=True)
-    t2w = _make_ramp_t2w(case_dir / "10000_1000000_t2w.mha", (4, 4, 3), (0.5, 0.5, 3.0))
+    t2w = _make_ramp_t2w(case_dir / "CASE_A01_t2w.mha", (4, 4, 3), (0.5, 0.5, 3.0))
     reference = read_geometry(t2w)
 
     written = normalize_t2w_dataset(images_root, method="gaussian")
@@ -612,15 +613,15 @@ def test_normalize_t2w_dataset_in_place(tmp_path):
 
 def test_normalize_t2w_dataset_output_root_and_skip(tmp_path):
     images_root = tmp_path / "images"
-    case_dir = images_root / "10000"
+    case_dir = images_root / "CASE"
     case_dir.mkdir(parents=True)
-    src = _make_ramp_t2w(case_dir / "10000_1000000_t2w.mha", (4, 4, 3), (0.5, 0.5, 3.0))
+    src = _make_ramp_t2w(case_dir / "CASE_A01_t2w.mha", (4, 4, 3), (0.5, 0.5, 3.0))
     original = sitk.GetArrayFromImage(sitk.ReadImage(str(src)))
 
     output_root = tmp_path / "normalized"
     written = normalize_t2w_dataset(images_root, method="gaussian", output_root=output_root)
     assert written == 1
-    dest = output_root / "10000" / "10000_1000000_t2w_gaussian.mha"
+    dest = output_root / "CASE" / "CASE_A01_t2w_gaussian.mha"
     assert dest.exists()
     # Source left untouched when writing to a separate folder.
     assert np.array_equal(sitk.GetArrayFromImage(sitk.ReadImage(str(src))), original)
@@ -637,13 +638,13 @@ def test_normalize_t2w_dataset_output_root_and_skip(tmp_path):
 
 def test_normalize_t2w_dataset_parallel_workers(tmp_path):
     images_root = tmp_path / "images"
-    case0 = images_root / "10000"
-    case1 = images_root / "10001"
+    case0 = images_root / "CASE"
+    case1 = images_root / "CASE_B"
     case0.mkdir(parents=True)
     case1.mkdir(parents=True)
 
-    _make_ramp_t2w(case0 / "10000_1000000_t2w.mha", (4, 4, 3), (0.5, 0.5, 3.0))
-    _make_ramp_t2w(case1 / "10001_1000001_t2w.mha", (4, 4, 3), (0.5, 0.5, 3.0))
+    _make_ramp_t2w(case0 / "CASE_A01_t2w.mha", (4, 4, 3), (0.5, 0.5, 3.0))
+    _make_ramp_t2w(case1 / "CASE_B01_t2w.mha", (4, 4, 3), (0.5, 0.5, 3.0))
 
     output_root = tmp_path / "normalized"
     written = normalize_t2w_dataset(
@@ -653,31 +654,31 @@ def test_normalize_t2w_dataset_parallel_workers(tmp_path):
         workers=2,
     )
     assert written == 2
-    assert (output_root / "10000" / "10000_1000000_t2w_gaussian.mha").exists()
-    assert (output_root / "10001" / "10001_1000001_t2w_gaussian.mha").exists()
+    assert (output_root / "CASE" / "CASE_A01_t2w_gaussian.mha").exists()
+    assert (output_root / "CASE_B" / "CASE_B01_t2w_gaussian.mha").exists()
 
 
 def test_normalize_t2w_dataset_skips_when_legacy_normalized_exists(tmp_path):
     images_root = tmp_path / "images"
-    case_dir = images_root / "10000"
+    case_dir = images_root / "CASE"
     case_dir.mkdir(parents=True)
-    _make_ramp_t2w(case_dir / "10000_1000000_t2w.mha", (4, 4, 3), (0.5, 0.5, 3.0))
+    _make_ramp_t2w(case_dir / "CASE_A01_t2w.mha", (4, 4, 3), (0.5, 0.5, 3.0))
 
     output_root = tmp_path / "normalized"
-    legacy_dest = output_root / "10000" / "10000_1000000_t2w.mha"
+    legacy_dest = output_root / "CASE" / "CASE_A01_t2w.mha"
     legacy_dest.parent.mkdir(parents=True, exist_ok=True)
     _make_ramp_t2w(legacy_dest, (4, 4, 3), (0.5, 0.5, 3.0))
 
     written = normalize_t2w_dataset(images_root, method="autoref", output_root=output_root)
     assert written == 0
-    assert not (output_root / "10000" / "10000_1000000_t2w_autoref.mha").exists()
+    assert not (output_root / "CASE" / "CASE_A01_t2w_autoref.mha").exists()
 
 
 def test_normalize_t2w_dataset_prints_remaining_progress(tmp_path, capsys):
     images_root = tmp_path / "images"
-    case_dir = images_root / "10000"
+    case_dir = images_root / "CASE"
     case_dir.mkdir(parents=True)
-    _make_ramp_t2w(case_dir / "10000_1000000_t2w.mha", (4, 4, 3), (0.5, 0.5, 3.0))
+    _make_ramp_t2w(case_dir / "CASE_A01_t2w.mha", (4, 4, 3), (0.5, 0.5, 3.0))
 
     output_root = tmp_path / "normalized"
     written = normalize_t2w_dataset(images_root, method="gaussian", output_root=output_root)
@@ -690,24 +691,24 @@ def test_normalize_t2w_dataset_prints_remaining_progress(tmp_path, capsys):
 
 def test_resample_dataset_uses_reference_root_for_t2w(tmp_path):
     images_root = tmp_path / "images"
-    case_dir = images_root / "10000"
+    case_dir = images_root / "CASE"
     case_dir.mkdir(parents=True)
 
     original_t2w = np.zeros((3, 4, 4), dtype=np.float32)
     image = sitk.GetImageFromArray(original_t2w)
     image.SetSpacing((0.5, 0.5, 3.0))
-    sitk.WriteImage(image, str(case_dir / "10000_1000000_t2w.mha"))
+    sitk.WriteImage(image, str(case_dir / "CASE_A01_t2w.mha"))
 
     adc = sitk.GetImageFromArray(np.ones((3, 4, 4), dtype=np.float32))
     adc.SetSpacing((0.5, 0.5, 3.0))
-    sitk.WriteImage(adc, str(case_dir / "10000_1000000_adc.mha"))
+    sitk.WriteImage(adc, str(case_dir / "CASE_A01_adc.mha"))
 
     normalized_root = tmp_path / "normalized" / "autoref_t2w"
-    normalized_case_dir = normalized_root / "10000"
+    normalized_case_dir = normalized_root / "CASE"
     normalized_case_dir.mkdir(parents=True)
     normalized_t2w = sitk.GetImageFromArray(np.full((3, 4, 4), 7.0, dtype=np.float32))
     normalized_t2w.SetSpacing((0.5, 0.5, 3.0))
-    sitk.WriteImage(normalized_t2w, str(normalized_case_dir / "10000_1000000_t2w.mha"))
+    sitk.WriteImage(normalized_t2w, str(normalized_case_dir / "CASE_A01_t2w.mha"))
 
     output_root = tmp_path / "images_resampled"
     written = resample_dataset(
@@ -721,10 +722,10 @@ def test_resample_dataset_uses_reference_root_for_t2w(tmp_path):
 
     assert written == 2
     out_t2w = sitk.GetArrayFromImage(
-        sitk.ReadImage(str(output_root / "10000" / "10000_1000000_t2w.mha"))
+        sitk.ReadImage(str(output_root / "CASE" / "CASE_A01_t2w.mha"))
     )
     assert np.all(out_t2w == 7.0)
-    assert (output_root / "10000" / "10000_1000000_adc.mha").exists()
+    assert (output_root / "CASE" / "CASE_A01_adc.mha").exists()
 
 
 def test_normalize_t2w_dataset_rejects_no_files(tmp_path):
@@ -748,14 +749,14 @@ def test_extract_archives_unpacks_and_skips_existing(tmp_path):
     images_root = tmp_path / "images"
     _make_zip(
         archives_root / "fold0.zip",
-        {"10000/10000_1000000_t2w.mha": "a", "10000/10000_1000000_adc.mha": "b"},
+        {"CASE/CASE_A01_t2w.mha": "a", "CASE/CASE_A01_adc.mha": "b"},
     )
-    _make_zip(archives_root / "fold1.zip", {"10001/10001_1000001_t2w.mha": "c"})
+    _make_zip(archives_root / "fold1.zip", {"CASE_B/CASE_B01_t2w.mha": "c"})
 
     extracted = extract_archives(archives_root, images_root)
     assert extracted == 3
-    assert (images_root / "10000" / "10000_1000000_t2w.mha").read_text() == "a"
-    assert (images_root / "10001" / "10001_1000001_t2w.mha").read_text() == "c"
+    assert (images_root / "CASE" / "CASE_A01_t2w.mha").read_text() == "a"
+    assert (images_root / "CASE_B" / "CASE_B01_t2w.mha").read_text() == "c"
 
     # Re-running skips files that already exist (unzip -n semantics).
     assert extract_archives(archives_root, images_root) == 0
@@ -798,13 +799,13 @@ def test_resample_dataset_extracts_archives_first(tmp_path):
     archives_root.mkdir()
 
     # Build a case in memory, write it to disk, then zip it up.
-    staging = tmp_path / "staging" / "10000"
+    staging = tmp_path / "staging" / "CASE"
     staging.mkdir(parents=True)
-    _make_image(staging / "10000_1000000_t2w.mha", (10, 10, 3), (0.5, 0.5, 3.0))
-    _make_image(staging / "10000_1000000_adc.mha", (5, 5, 3), (1.0, 1.0, 3.0))
+    _make_image(staging / "CASE_A01_t2w.mha", (10, 10, 3), (0.5, 0.5, 3.0))
+    _make_image(staging / "CASE_A01_adc.mha", (5, 5, 3), (1.0, 1.0, 3.0))
     with zipfile.ZipFile(archives_root / "fold0.zip", "w") as zf:
         for f in staging.iterdir():
-            zf.write(f, arcname=f"10000/{f.name}")
+            zf.write(f, arcname=f"CASE/{f.name}")
 
     output_root = tmp_path / "out"
     config = ResampleConfig(
@@ -816,5 +817,7 @@ def test_resample_dataset_extracts_archives_first(tmp_path):
 
     written = resample_dataset(config)
     assert written == 2  # t2w + adc, extracted from the archive then aligned
-    assert (output_root / "10000" / "10000_1000000_t2w.mha").exists()
-    assert (output_root / "10000" / "10000_1000000_adc.mha").exists()
+    assert (output_root / "CASE" / "CASE_A01_t2w.mha").exists()
+    assert (output_root / "CASE" / "CASE_A01_adc.mha").exists()
+
+
