@@ -13,9 +13,46 @@ def test_bp_mri_requires_adc_and_hbv():
         CropConfig(sequence_type="bpMRI", **BASE_REQUIRED)
 
 
-def test_invalid_percentile_range_raises():
-    with pytest.raises(ValueError, match="min_percentile must be less than max_percentile"):
-        CropConfig(min_percentile=90, max_percentile=10, **BASE_REQUIRED)
+def test_invalid_t2w_percentile_range_raises():
+    with pytest.raises(
+        ValueError, match="t2w min_percentile must be less than t2w max_percentile"
+    ):
+        CropConfig(t2w_min_percentile=90, t2w_max_percentile=10, **BASE_REQUIRED)
+
+
+def test_invalid_adc_percentile_range_raises():
+    with pytest.raises(
+        ValueError, match="adc min_percentile must be less than adc max_percentile"
+    ):
+        CropConfig(adc_min_percentile=90, adc_max_percentile=10, **BASE_REQUIRED)
+
+
+def test_modality_percentiles_have_explicit_defaults():
+    config = CropConfig(**BASE_REQUIRED)
+    assert config.t2w_min_percentile == 0.5
+    assert config.t2w_max_percentile == 99.5
+    assert config.adc_min_percentile == 0.5
+    assert config.adc_max_percentile == 99.5
+    assert config.hbv_min_percentile == 0.5
+    assert config.hbv_max_percentile == 99.5
+
+
+def test_modality_percentiles_can_be_overridden_independently():
+    config = CropConfig(
+        t2w_min_percentile=0.5,
+        t2w_max_percentile=99.5,
+        adc_min_percentile=5.0,
+        adc_max_percentile=95.0,
+        hbv_min_percentile=2.0,
+        hbv_max_percentile=98.0,
+        **BASE_REQUIRED,
+    )
+    assert config.t2w_min_percentile == 0.5
+    assert config.t2w_max_percentile == 99.5
+    assert config.adc_min_percentile == 5.0
+    assert config.adc_max_percentile == 95.0
+    assert config.hbv_min_percentile == 2.0
+    assert config.hbv_max_percentile == 98.0
 
 
 def test_invalid_overlap_percentage_raises():

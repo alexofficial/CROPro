@@ -9,24 +9,25 @@ Usage
 -----
 ::
 
-    cropro resample --schema config/dataset_prostate158.toml
-    cropro crop     --schema config/dataset_prostate158.toml --crop_method stride ...
+    cropro resample --schema config/my_dataset.toml
+    cropro crop     --schema config/my_dataset.toml --crop_method stride ...
     cropro resample --schema config/my_dataset.toml --output-root /tmp/resampled
 
 CLI flags always override the matching value from the schema file.
 
 Schema format
 -------------
-See ``config/dataset_picai.toml`` and ``config/dataset_prostate158.toml`` for
-full examples.  The schema has four optional sections::
+See ``config/pipeline.toml`` for a full generic example. The schema has four
+optional sections::
 
     [dataset]
-    name = "Prostate158"          # informational label
+    name = "MyDataset"            # informational label
+    plugin = "mydataset"          # optional local dataset plugin name
 
     [paths]
-    images_root    = "dataset/Prostate158/images"
-    output_root    = "dataset/Prostate158/images_resampled"
-    normalized_t2w_root = "dataset/Prostate158/normalized/autoref_t2w"
+    images_root    = "dataset/MyDataset/images"
+    output_root    = "dataset/MyDataset/images_resampled"
+    normalized_t2w_root = "dataset/MyDataset/normalized/autoref_t2w"
     archives_root  = "none"       # "none" disables archive extraction
     gland_root     = "none"       # "none" skips gland masks
     lesion_root    = "none"       # "none" skips lesion masks
@@ -72,7 +73,7 @@ full examples.  The schema has four optional sections::
 
     [metadata]
     # Path to a CSV file with per-case clinical/label information.
-    csv_path        = "dataset/PI-CAI/picai_labels/clinical_information/marksheet.csv"
+    csv_path        = "dataset/MyDataset/labels/clinical_information.csv"
     # Columns that together build the case stem (case identifier).
     case_id_columns = ["patient_id", "study_id"]
     # Python format string to build the stem from the id columns.
@@ -117,6 +118,7 @@ class DatasetSchema:
     """
 
     name: str | None = None
+    plugin: str | None = None
     paths: dict[str, str] = field(default_factory=dict)
     naming: dict[str, str] = field(default_factory=dict)
     crop: dict[str, Any] = field(default_factory=dict)
@@ -154,6 +156,7 @@ class DatasetSchema:
         dataset_section = raw.get("dataset", {})
         return cls(
             name=dataset_section.get("name"),
+            plugin=dataset_section.get("plugin"),
             paths={k: str(v) for k, v in raw.get("paths", {}).items()},
             naming={k: str(v) for k, v in raw.get("naming", {}).items()},
             crop={k: v for k, v in raw.get("crop", {}).items()},
@@ -277,6 +280,8 @@ class DatasetSchema:
     def describe(self) -> str:
         label = self.name or "(unnamed)"
         lines = [f"Dataset schema: {label}"]
+        if self.plugin:
+            lines.append(f"  [dataset] plugin = {self.plugin}")
         if self.paths:
             lines.append("  [paths]")
             for k, v in self.paths.items():

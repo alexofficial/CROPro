@@ -5,7 +5,7 @@ Configure through the ``[metadata]`` section of a dataset schema TOML::
 
     [metadata]
     # Path to the CSV or TSV containing case-level information.
-    csv_path        = "dataset/PI-CAI/picai_labels/clinical_information/marksheet.csv"
+    csv_path        = "dataset/MyDataset/labels/clinical_information.csv"
     # CSV columns whose values together build the case stem (case identifier).
     case_id_columns = ["patient_id", "study_id"]
     # Python format string that combines the id columns into the case stem.
@@ -27,7 +27,7 @@ Typical usage::
     from cropro.metadata import load_case_metadata
 
     entries = load_case_metadata(
-        csv_path="dataset/PI-CAI/picai_labels/clinical_information/marksheet.csv",
+        csv_path="dataset/MyDataset/labels/clinical_information.csv",
         case_id_columns=["patient_id", "study_id"],
         case_id_format="{patient_id}_{study_id}",
         positive_column="case_csPCa",

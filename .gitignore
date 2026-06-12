@@ -78,6 +78,7 @@ Thumbs.db
 Desktop.ini
 .idea/
 .vscode/
+.cropro_user/
 *.swp
 *.swo
 *~

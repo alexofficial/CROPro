@@ -6,7 +6,7 @@ CROPro exposes pipelines as subcommands:
 - ``cropro resample ...`` -- resample a dataset's ADC/HBV scans and masks onto
   the T2W grid so the sequences are aligned before cropping.
 - ``cropro normalize ...`` -- normalize T2W volumes in-place or to an output dir.
-- ``cropro download ...`` -- download supported datasets (PI-CAI/Prostate158/custom).
+- ``cropro download ...`` -- download dataset archives from URLs or plugins.
 
 For backward compatibility, invoking ``cropro`` with crop options but no
 subcommand (e.g. ``cropro --crop_method center ...``) defaults to the crop
@@ -18,13 +18,13 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 
 from .config import CropConfig
 from .core import CROPro
+from .datasets import get_dataset_plugin
 
 PIPELINES = ("crop", "resample", "normalize", "download")
 
@@ -45,8 +45,9 @@ def _add_crop_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         metavar="SCHEMA.toml",
         help=(
-            "Dataset schema TOML file (see config/dataset_picai.toml). Provides default "
-            "paths, naming suffixes, and crop settings. CLI flags override schema values."
+            "Dataset schema TOML file (start from config/pipeline.toml or see "
+            "config/pipeline.toml). Provides default paths, naming suffixes, and crop "
+            "settings. CLI flags override schema values."
         ),
     )
     parser.add_argument(
@@ -325,7 +326,7 @@ def _add_crop_arguments(parser: argparse.ArgumentParser) -> None:
         default=2,
         help=(
             "Integer label value used for lesion pixels in the lesion mask "
-            "(e.g. 1 for binary masks, 2 or 3 for PI-CAI Bosma22a masks that "
+            "(e.g. 1 for binary masks, or larger values when lesions are multi-labeled) "
             "label each lesion separately). Default: 2."
         ),
     )
@@ -444,16 +445,40 @@ def _add_crop_arguments(parser: argparse.ArgumentParser) -> None:
         help="Normalization strategy for HBV crops (autoref is T2W-only).",
     )
     parser.add_argument(
-        "--min_percentile",
+        "--t2w_min_percentile",
         type=float,
         default=0.5,
-        help="Lower percentile for intensity clipping/windowing. Default: 0.5.",
+        help="Lower percentile for T2W intensity clipping/windowing. Default: 0.5.",
     )
     parser.add_argument(
-        "--max_percentile",
+        "--t2w_max_percentile",
         type=float,
         default=99.5,
-        help="Upper percentile for intensity clipping/windowing. Default: 99.5.",
+        help="Upper percentile for T2W intensity clipping/windowing. Default: 99.5.",
+    )
+    parser.add_argument(
+        "--adc_min_percentile",
+        type=float,
+        default=0.5,
+        help="Lower percentile for ADC intensity clipping/windowing. Default: 0.5.",
+    )
+    parser.add_argument(
+        "--adc_max_percentile",
+        type=float,
+        default=99.5,
+        help="Upper percentile for ADC intensity clipping/windowing. Default: 99.5.",
+    )
+    parser.add_argument(
+        "--hbv_min_percentile",
+        type=float,
+        default=0.5,
+        help="Lower percentile for HBV intensity clipping/windowing. Default: 0.5.",
+    )
+    parser.add_argument(
+        "--hbv_max_percentile",
+        type=float,
+        default=99.9,
+        help="Upper percentile for HBV intensity clipping/windowing. Default: 99.9.",
     )
     parser.add_argument(
         "--saved_image_type",
@@ -528,8 +553,17 @@ def _add_resample_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         metavar="SCHEMA.toml",
         help=(
-            "Dataset schema TOML file (see config/dataset_picai.toml). Provides default "
-            "paths, naming suffixes, and resample settings. CLI flags override schema values."
+            "Dataset schema TOML file (start from config/pipeline.toml or see "
+            "config/pipeline.toml). Provides default paths, naming suffixes, and "
+            "resample settings. CLI flags override schema values."
+        ),
+    )
+    parser.add_argument(
+        "--dataset-plugin",
+        default=None,
+        help=(
+            "Optional dataset plugin name used to set resample defaults. "
+            "Plugins are loaded from .cropro_user/dataset_plugins.py."
         ),
     )
     parser.add_argument(
@@ -599,7 +633,7 @@ def _add_resample_arguments(parser: argparse.ArgumentParser) -> None:
         type=Path,
         default=None,
         help=(
-            "Directory of *.zip image archives (e.g. PI-CAI fold zips) unpacked "
+            "Directory of *.zip image archives unpacked "
             "into --images-root before resampling. Defaults to <images-root>/../archives. "
             "Pass 'none' to disable extraction."
         ),
@@ -615,7 +649,7 @@ def _add_resample_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         help=(
             "Directory with whole-gland masks named <stem><mask-suffix>. "
-            "Defaults to the PI-CAI layout. Pass 'none' to skip gland masks."
+            "Pass 'none' to skip gland masks."
         ),
     )
     parser.add_argument(
@@ -624,7 +658,7 @@ def _add_resample_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         help=(
             "Directory with lesion masks named <stem><mask-suffix>. "
-            "Defaults to the PI-CAI layout. Pass 'none' to skip lesion masks."
+            "Pass 'none' to skip lesion masks."
         ),
     )
     parser.add_argument(
@@ -719,22 +753,22 @@ def _add_normalize_arguments(parser: argparse.ArgumentParser) -> None:
 def _add_download_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--dataset",
-        default="picai",
-        choices=["picai", "prostate158", "custom"],
+        default="custom",
+        help="Dataset label used for output folder naming and plugin lookup.",
+    )
+    parser.add_argument(
+        "--dataset-plugin",
+        default=None,
         help=(
-            "Dataset preset to download. 'picai' has built-in URLs and label repo handling. "
-            "'prostate158' uses a built-in Zenodo URL by default (or custom --url values). "
-            "'custom' is generic URL download."
+            "Optional dataset plugin name that can implement custom download behavior. "
+            "Plugins are loaded from .cropro_user/dataset_plugins.py."
         ),
     )
     parser.add_argument(
         "--dataset-root",
         type=Path,
         default=None,
-        help=(
-            "Base dataset directory. Defaults: dataset/PI-CAI for picai, "
-            "dataset/Prostate158 for prostate158, dataset/custom for custom."
-        ),
+        help="Base dataset directory. Default: dataset/<dataset>.",
     )
     parser.add_argument(
         "--images-root",
@@ -749,30 +783,24 @@ def _add_download_arguments(parser: argparse.ArgumentParser) -> None:
         help="Where archives are stored. Default: <dataset-root>/archives.",
     )
     parser.add_argument(
-        "--labels-root",
-        type=Path,
-        default=None,
-        help="PI-CAI labels repo target. Default: <dataset-root>/picai_labels.",
-    )
-    parser.add_argument(
         "--folds",
         nargs="+",
         default=["0"],
-        help="PI-CAI folds to download (e.g. --folds 0 1 2 3 4). Default: 0.",
+        help="Optional fold identifiers forwarded to dataset plugins. Default: 0.",
     )
     parser.add_argument(
         "--url",
         action="append",
         default=[],
         help=(
-            "Archive URL to download (repeatable). Optional for prostate158 (built-in default), "
-            "required for custom. Example: --url https://.../dataset.zip"
+            "Archive URL to download (repeatable). Required when no plugin "
+            "handles the dataset. Example: --url https://.../dataset.zip"
         ),
     )
     parser.add_argument(
         "--skip-labels",
         action="store_true",
-        help="PI-CAI only: skip cloning/updating the picai_labels repository.",
+        help="Optional plugin flag forwarded to dataset plugin implementations.",
     )
     parser.add_argument(
         "--overwrite",
@@ -784,6 +812,14 @@ def _add_download_arguments(parser: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     _EPILOG = """
 examples:
+    # Create your own schema TOML (recommended for custom datasets):
+    cp config/pipeline.toml config/my_dataset.toml
+    # Edit [paths], [naming], [crop], [split], [pipeline] in config/my_dataset.toml
+
+    # Use your custom schema with any pipeline:
+    cropro resample --schema config/my_dataset.toml
+    cropro crop --schema config/my_dataset.toml
+
   # Crop a single negative T2W case with stride (full volumetric coverage):
   cropro crop --crop_method stride --patient_status negative \\
       --orig_img_path_t2w data/p001/t2w.nii.gz \\
@@ -801,34 +837,27 @@ examples:
       --tumor_label_level 1 --sample_number 12 --saved_image_type png \\
       --path_to_save outputs/p002
 
-  # Resample using a dataset schema (layout + naming in one file):
-  cropro resample --schema config/dataset_picai.toml
-  cropro resample --schema config/dataset_prostate158.toml
+    # Resample using a dataset schema (layout + naming in one file):
+    cropro resample --schema config/my_dataset.toml
 
-  # Batch crop using a dataset schema (crop settings + paths from schema):
-  cropro crop --schema config/dataset_picai.toml --output-root outputs/picai
+    # Batch crop using a dataset schema (crop settings + paths from schema):
+    cropro crop --schema config/my_dataset.toml --output-root outputs/my_dataset
 
-  # Resample a PI-CAI dataset before cropping (run once per dataset):
+    # Resample a dataset before cropping (run once per dataset):
   cropro resample --config config/resample_paths.ini
 
-    # Download PI-CAI fold 0 and labels:
-    cropro download --dataset picai --folds 0
-
-    # Download Prostate158 (built-in Zenodo URL):
-    cropro download --dataset prostate158
-
-    # Download Prostate158 from explicit archive URL(s):
-    cropro download --dataset prostate158 --url https://zenodo.org/api/records/6481141/files/prostate158_train.zip/content
+        # Download from explicit archive URL(s):
+        cropro download --dataset mydataset --url https://host/path/dataset.zip
 
   # Batch crop an aligned dataset folder (many patients):
-  cropro crop --images-root dataset/PI-CAI/images_resampled \
-      --output-root dataset/cropro/PI-CAI/PICAI_stride_0.4_128 \
+  cropro crop --images-root dataset/MyDataset/images_resampled \
+      --output-root dataset/cropro/MyDataset/run_stride_0.4_128 \
       --sequence_type bpMRI --crop_method stride --pixel_spacing 0.4 --crop_image_size 128
 
-  # Batch crop with custom database layout (e.g., Prostate158-style naming):
-  cropro crop --images-root data/Prostate158/images --output-root outputs/Prostate158 \
+  # Batch crop with custom database layout (custom naming):
+  cropro crop --images-root data/MyDataset/images --output-root outputs/MyDataset \
       --sequence_type T2W --t2w-suffix _t2.nii.gz --mask-suffix .nii.gz \
-      --gland-root data/Prostate158/masks/gland --crop_method center
+      --gland-root data/MyDataset/masks/gland --crop_method center
 
   # Show help for a specific subcommand:
   cropro crop --help
@@ -846,7 +875,7 @@ examples:
             "  crop       Crop T2W (and optionally ADC/HBV) patches around the prostate.\n"
             "  resample   Resample ADC/HBV scans and masks onto the T2W grid (bpMRI prep).\n"
             "  normalize  Normalise every T2W volume in a dataset (AutoRef, percentile, …).\n"
-            "  download   Download supported datasets for immediate CLI use.\n"
+            "  download   Download datasets from URLs or plugins.\n"
             "\n"
             "Running 'cropro' with no subcommand defaults to 'crop' (backward compatible)."
         ),
@@ -895,11 +924,11 @@ examples:
 
     download_parser = subparsers.add_parser(
         "download",
-        help="Download datasets (PI-CAI, Prostate158, or custom URLs).",
+        help="Download datasets from URLs or dataset plugins.",
         description=(
             "Download dataset archives and extract them for CROPro pipelines.\n"
-            "Use --dataset picai or --dataset prostate158 for built-in sources, "
-            "or provide --url for prostate158/custom sources."
+            "Use --url for generic downloads, or provide --dataset-plugin for "
+            "dataset-specific download behavior."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -1012,27 +1041,18 @@ def _build_resample_config(
     if not images_root.is_dir() and not has_archives:
         parser.error(f"--images-root does not exist or is not a directory: {images_root}")
 
-    # Build the dataset layout.
-    # Default to PI-CAI roots when the path looks like PI-CAI, otherwise keep
-    # a generic layout with no mask roots (works better for custom datasets).
-    root_text = str(images_root).replace("\\", "/").lower()
-    if "pi-cai" in root_text or "picai" in root_text:
-        layout = DatasetLayout.picai(images_root)
-    else:
-        layout = DatasetLayout()
+    layout = DatasetLayout()
 
-    # Prostate158 preset: when the user did not provide explicit suffixes,
-    # switch to the dataset's canonical naming convention.
-    suffix_keys = ("t2w_suffix", "adc_suffix", "hbv_suffix", "mask_suffix")
-    has_cli_suffix_override = any(
-        getattr(namespace, key) is not None for key in suffix_keys
-    )
-    has_ini_suffix_override = any(key in cfg for key in suffix_keys)
-    if "prostate158" in root_text and not has_cli_suffix_override and not has_ini_suffix_override:
-        layout.t2w_suffix = "t2.nii.gz"
-        layout.adc_suffix = "adc.nii.gz"
-        layout.hbv_suffix = "dwi.nii.gz"
-        layout.mask_suffix = ".nii.gz"
+    plugin_name = getattr(namespace, "dataset_plugin", None)
+    if plugin_name is None and schema is not None:
+        plugin_name = getattr(schema, "plugin", None)
+    plugin = get_dataset_plugin(plugin_name)
+    if plugin is not None:
+        plugin.apply_resample_defaults(
+            images_root=images_root,
+            layout=layout,
+            options={"namespace": namespace, "ini": cfg, "schema": schema},
+        )
 
     layout.t2w_suffix = _str_from(namespace.t2w_suffix, "t2w_suffix", layout.t2w_suffix)
     layout.adc_suffix = _str_from(namespace.adc_suffix, "adc_suffix", layout.adc_suffix)
@@ -1209,47 +1229,37 @@ def _run_normalize(namespace: argparse.Namespace, parser: argparse.ArgumentParse
 
 
 def _run_download(namespace: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
-    from .download import DownloadConfig, download_custom, download_picai, download_prostate158
+    from .download import DownloadConfig, download_from_urls
 
+    dataset_name = str(namespace.dataset or "custom").strip() or "custom"
     if namespace.dataset_root is not None:
         dataset_root = Path(namespace.dataset_root)
-    elif namespace.dataset == "picai":
-        dataset_root = Path("dataset/PI-CAI")
-    elif namespace.dataset == "prostate158":
-        dataset_root = Path("dataset/Prostate158")
     else:
-        dataset_root = Path("dataset/custom")
+        dataset_root = Path("dataset") / dataset_name
 
     images_root = Path(namespace.images_root) if namespace.images_root else dataset_root / "images"
     archives_root = (
         Path(namespace.archives_root) if namespace.archives_root else dataset_root / "archives"
     )
-    labels_root = None
-    if namespace.dataset == "picai":
-        labels_root = (
-            Path(namespace.labels_root)
-            if namespace.labels_root
-            else dataset_root / "picai_labels"
-        )
-
     cfg = DownloadConfig(
-        dataset=namespace.dataset,
         dataset_root=dataset_root,
         archives_root=archives_root,
         images_root=images_root,
-        labels_root=labels_root,
         overwrite=namespace.overwrite,
     )
 
     try:
-        if namespace.dataset == "picai":
-            download_picai(cfg, folds=[str(f) for f in namespace.folds], skip_labels=namespace.skip_labels)
+        plugin_name = namespace.dataset_plugin or dataset_name
+        plugin = get_dataset_plugin(plugin_name)
+        if plugin is not None and plugin.download(
+            config=cfg,
+            urls=list(namespace.url),
+            folds=[str(f) for f in namespace.folds],
+            skip_labels=namespace.skip_labels,
+        ):
             return
-        if namespace.dataset == "prostate158":
-            download_prostate158(cfg, urls=list(namespace.url))
-            return
-        download_custom(cfg, urls=list(namespace.url))
-    except (FileNotFoundError, ValueError, subprocess.CalledProcessError) as exc:
+        download_from_urls(cfg, urls=list(namespace.url))
+    except ValueError as exc:
         parser.error(str(exc))
 
 
@@ -1482,18 +1492,36 @@ def _crop_single_case(
 def _build_crop_run_name(namespace: argparse.Namespace, schema) -> str:
     """Build an auto-generated crop run folder name.
 
-    Format: ``{DatasetName}_{crop_method}_{pixel_spacing}_{crop_image_size}``
-    Example: ``PICAI_random_0.4_128``
+    Format:
+    ``{DatasetName}_{crop_method}_{pixel_spacing}_{crop_image_size}``
+    ``_t2w_{min}_{max}_adc_{min}_{max}_hbv_{min}_{max}``
+    Example: ``MyDataset_random_0_4_128_t2w_0_5_99_5_adc_0_5_99_5_hbv_0_5_99_9``
     """
+
+    def _float_token(value: float) -> str:
+        return f"{float(value):g}".replace(".", "_")
+
     raw_name = (schema.name if schema is not None and schema.name else "dataset")
     # Remove spaces and hyphens from the dataset name.
     clean_name = raw_name.replace(" ", "").replace("-", "")
     method = getattr(namespace, "crop_method", "center")
     spacing = getattr(namespace, "pixel_spacing", 0.5)
     size = getattr(namespace, "crop_image_size", 128)
-    # Format spacing without trailing zeros (0.4 stays 0.4, 0.50 → 0.5).
-    spacing_str = f"{float(spacing):g}"
-    return f"{clean_name}_{method}_{spacing_str}_{size}"
+    t2w_min = getattr(namespace, "t2w_min_percentile", 0.5)
+    t2w_max = getattr(namespace, "t2w_max_percentile", 99.5)
+    adc_min = getattr(namespace, "adc_min_percentile", 0.5)
+    adc_max = getattr(namespace, "adc_max_percentile", 99.5)
+    hbv_min = getattr(namespace, "hbv_min_percentile", 0.5)
+    hbv_max = getattr(namespace, "hbv_max_percentile", 99.9)
+
+    # Format numeric tokens for filesystem-friendly names: 0.4 -> 0_4.
+    spacing_str = _float_token(spacing)
+    return (
+        f"{clean_name}_{method}_{spacing_str}_{size}"
+        f"_t2w_{_float_token(t2w_min)}_{_float_token(t2w_max)}"
+        f"_adc_{_float_token(adc_min)}_{_float_token(adc_max)}"
+        f"_hbv_{_float_token(hbv_min)}_{_float_token(hbv_max)}"
+    )
 
 
 def _resolve_crop_output_root(namespace: argparse.Namespace, schema) -> Path | None:
@@ -1588,8 +1616,8 @@ def _run_crop_dataset(namespace: argparse.Namespace, parser: argparse.ArgumentPa
             if getattr(namespace, attr) is None and key in schema.paths:
                 setattr(namespace, attr, Path(schema.paths[key]))
 
-        # Optional dual lesion roots for PI-CAI: prefer human when non-empty,
-        # otherwise fall back to AI labels.
+        # Optional dual lesion roots: prefer human when non-empty, otherwise
+        # fall back to AI-generated labels.
         if getattr(namespace, "lesion_root_ai_generated_labels", None) is None:
             ai_root = schema.get_path("lesion_root_ai_generated_labels")
             if ai_root:

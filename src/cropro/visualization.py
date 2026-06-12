@@ -35,7 +35,7 @@ import numpy as np
 # ---------------------------------------------------------------------------
 
 _STRATEGY_COLORS = {
-    "center": "#00E5FF",   # cyan
+    "center": "#00C853",   # green
     "stride": "#FFEA00",   # yellow
     "random": "#FF6D00",   # orange
 }
@@ -411,8 +411,8 @@ class CropViewer:
         t2w_normalization_method: str = "autoref",
         adc_normalization_method: str = "percentile",
         hbv_normalization_method: str = "percentile",
-        min_percentile: float = 0.5,
-        max_percentile: float = 99.5,
+        t2w_min_percentile: float | None = None,
+        t2w_max_percentile: float | None = None,
         adc_min_percentile: float | None = None,
         adc_max_percentile: float | None = None,
         hbv_min_percentile: float | None = None,
@@ -437,12 +437,14 @@ class CropViewer:
         self.t2w_normalization_method = t2w_normalization_method
         self.adc_normalization_method = adc_normalization_method
         self.hbv_normalization_method = hbv_normalization_method
-        self.min_percentile = min_percentile
-        self.max_percentile = max_percentile
-        self.adc_min_percentile = adc_min_percentile if adc_min_percentile is not None else min_percentile
-        self.adc_max_percentile = adc_max_percentile if adc_max_percentile is not None else max_percentile
-        self.hbv_min_percentile = hbv_min_percentile if hbv_min_percentile is not None else min_percentile
-        self.hbv_max_percentile = hbv_max_percentile if hbv_max_percentile is not None else max_percentile
+        # Fall back to viewer window percentiles when modality-specific values
+        # are not provided so display normalization remains usable by default.
+        self.t2w_min_percentile = norm_lo if t2w_min_percentile is None else t2w_min_percentile
+        self.t2w_max_percentile = norm_hi if t2w_max_percentile is None else t2w_max_percentile
+        self.adc_min_percentile = norm_lo if adc_min_percentile is None else adc_min_percentile
+        self.adc_max_percentile = norm_hi if adc_max_percentile is None else adc_max_percentile
+        self.hbv_min_percentile = norm_lo if hbv_min_percentile is None else hbv_min_percentile
+        self.hbv_max_percentile = norm_hi if hbv_max_percentile is None else hbv_max_percentile
         self.normalized_vmaxNumber = float(normalized_vmaxNumber)
 
         # Cache normalization outputs/windowing for repeated plotting of same slices.
@@ -454,6 +456,7 @@ class CropViewer:
         self._hbv: np.ndarray | None = None
         self._gland: np.ndarray | None = None
         self._lesion: np.ndarray | None = None
+        self._t2w_spacing_xy: tuple[float, float] | None = None
 
     def _method_for_modality(self, modality: str) -> str:
         modality = modality.upper()
@@ -468,7 +471,7 @@ class CropViewer:
     def _percentiles_for_modality(self, modality: str) -> tuple[float, float]:
         modality = modality.upper()
         if modality == "T2W":
-            return self.min_percentile, self.max_percentile
+            return self.t2w_min_percentile, self.t2w_max_percentile
         if modality == "ADC":
             return self.adc_min_percentile, self.adc_max_percentile
         if modality == "HBV":
@@ -552,7 +555,12 @@ class CropViewer:
     def _load(self) -> None:
         """Load all images from disk (idempotent)."""
         if self._t2w is None:
-            self._t2w = _read_sitk_array(self.t2w_path)
+            import SimpleITK as sitk  # noqa: PLC0415
+
+            t2w_img = sitk.ReadImage(str(self.t2w_path))
+            self._t2w = sitk.GetArrayFromImage(t2w_img)
+            sx, sy, _ = t2w_img.GetSpacing()
+            self._t2w_spacing_xy = (float(sx), float(sy))
         if self._adc is None and self.adc_path:
             self._adc = _read_sitk_array(self.adc_path)
         if self._hbv is None and self.hbv_path:
@@ -583,6 +591,9 @@ class CropViewer:
         self,
         strategy: str,
         slice_idx: int,
+        *,
+        crop_size_px: int | None = None,
+        stride_px: int | None = None,
     ) -> list[tuple[int, int, int, int]]:
         """Compute crop boxes for *strategy* on *slice_idx*.
 
@@ -593,13 +604,16 @@ class CropViewer:
         if gland_slice is None:
             return []
 
+        eff_crop_size = int(crop_size_px) if crop_size_px is not None else int(self.crop_size)
+        eff_stride = int(stride_px) if stride_px is not None else int(self.stride)
+
         if strategy == "center":
-            return _center_boxes(gland_slice, self.crop_size)
+            return _center_boxes(gland_slice, eff_crop_size)
         elif strategy == "stride":
-            return _stride_boxes(gland_slice, self.crop_size, self.stride)
+            return _stride_boxes(gland_slice, eff_crop_size, eff_stride)
         elif strategy == "random":
             return _random_boxes(
-                gland_slice, self.crop_size, self.random_samples, seed=self.random_seed
+                gland_slice, eff_crop_size, self.random_samples, seed=self.random_seed
             )
         else:
             raise ValueError(f"Unknown strategy '{strategy}'. Choose from: center, stride, random.")
@@ -613,6 +627,7 @@ class CropViewer:
         strategies: Sequence[str] = ("center", "stride", "random"),
         slice_idx: int | None = None,
         show_modalities: bool = True,
+        pixel_spacing: float | None = None,
     ) -> plt.Figure:
         """Draw crop boxes for the requested strategies on the full T2W slice.
 
@@ -629,6 +644,9 @@ class CropViewer:
             most lesion area (or the middle slice).
         show_modalities : bool
             When True, adds ADC and HBV panels beside the T2W + boxes panel.
+        pixel_spacing : float or None
+            In-plane spacing in mm/pixel used for box size annotations. When
+            ``None``, the T2W header spacing is used.
 
         Returns
         -------
@@ -636,6 +654,21 @@ class CropViewer:
         """
         self._load()
         z = slice_idx if slice_idx is not None else self._best_slice()
+        spacing_mm_per_px = (
+            float(pixel_spacing)
+            if pixel_spacing is not None
+            else (self._t2w_spacing_xy[0] if self._t2w_spacing_xy is not None else None)
+        )
+        native_spacing = self._t2w_spacing_xy[0] if self._t2w_spacing_xy is not None else None
+        if spacing_mm_per_px is not None and native_spacing is not None and native_spacing > 0:
+            scale = spacing_mm_per_px / native_spacing
+            eff_crop_size_px = max(1, int(round(self.crop_size * scale)))
+            eff_stride_px = max(1, int(round(self.stride * scale)))
+        else:
+            eff_crop_size_px = int(self.crop_size)
+            eff_stride_px = int(self.stride)
+        crop_mm = self.crop_size * spacing_mm_per_px if spacing_mm_per_px is not None else None
+        stride_mm = self.stride * spacing_mm_per_px if spacing_mm_per_px is not None else None
         t2w_slice, t2w_vmin, t2w_vmax = self._normalize_for_display(
             "T2W", self._t2w[z], slice_idx=z
         )
@@ -678,7 +711,12 @@ class CropViewer:
         legend_handles = []
         for strat in strategies:
             color = _STRATEGY_COLORS.get(strat, "#FFFFFF")
-            boxes = self._get_boxes(strat, z)
+            boxes = self._get_boxes(
+                strat,
+                z,
+                crop_size_px=eff_crop_size_px,
+                stride_px=eff_stride_px,
+            )
             for x1, y1, x2, y2 in boxes:
                 rect = mpatches.Rectangle(
                     (x1, y1),
@@ -687,7 +725,7 @@ class CropViewer:
                     linewidth=1.5,
                     edgecolor=color,
                     facecolor="none",
-                    linestyle="--" if strat == "random" else "-",
+                    linestyle="--",
                 )
                 ax.add_patch(rect)
             legend_handles.append(
@@ -704,11 +742,18 @@ class CropViewer:
             )
 
         ax.legend(handles=legend_handles, loc="upper right", fontsize=8, framealpha=0.7)
-        ax.set_title(f"T2W slice z={z}  |  crop boxes", fontsize=10)
+        title = f"T2W slice z={z}  |  crop boxes"
+        if spacing_mm_per_px is not None and crop_mm is not None and stride_mm is not None:
+            title += (
+                f"\nspacing={spacing_mm_per_px:.3f} mm/px  "
+                f"crop={self.crop_size}px ({crop_mm:.1f} mm)  "
+                f"stride={self.stride}px ({stride_mm:.1f} mm)"
+            )
+        ax.set_title(title, fontsize=10)
         ax.set_xticks([])
         ax.set_yticks([])
 
-        # --- Panels 1+: ADC / HBV with same contours ---
+        # --- Panels 1+: ADC / HBV with same contours and crop boxes ---
         for ax, (mod_name, mod_slice, mod_vmin, mod_vmax) in zip(
             axes[1:], modality_data, strict=False
         ):
@@ -727,6 +772,23 @@ class CropViewer:
                     colors=self.LESION_COLOR,
                     linewidths=1.6,
                 )
+            for strat in strategies:
+                color = _STRATEGY_COLORS.get(strat, "#FFFFFF")
+                for x1, y1, x2, y2 in self._get_boxes(
+                    strat,
+                    z,
+                    crop_size_px=eff_crop_size_px,
+                    stride_px=eff_stride_px,
+                ):
+                    ax.add_patch(mpatches.Rectangle(
+                        (x1, y1),
+                        x2 - x1,
+                        y2 - y1,
+                        linewidth=1.5,
+                        edgecolor=color,
+                        facecolor="none",
+                        linestyle="--",
+                    ))
             ax.set_title(f"{mod_name} (aligned)", fontsize=10)
             ax.set_xticks([])
             ax.set_yticks([])

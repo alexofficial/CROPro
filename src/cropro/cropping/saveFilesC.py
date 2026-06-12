@@ -77,13 +77,30 @@ class saveFilesC:
                     Flag to check if the image is already normalized.
         """
         self.arg = arg
-        self.min_percentile = self.arg.min_percentile
-        self.max_percentile = self.arg.max_percentile
         self.saved_image_type = self.arg.saved_image_type
         self.normalized_vmaxNumber = self.arg.normalized_vmaxNumber
         self.normalized_image = self.arg.normalized_image
         self.do_normalization = self.arg.do_normalization
         self.orig_img_path_t2w = self.arg.orig_img_path_t2w
+
+    def _percentiles_for(self, modality: str) -> tuple[float, float]:
+        modality_lower = modality.lower()
+        min_value = getattr(
+            self.arg,
+            f"{modality_lower}_min_percentile",
+            0.5,
+        )
+        max_value = getattr(
+            self.arg,
+            f"{modality_lower}_max_percentile",
+            99.5,
+        )
+        return float(min_value), float(max_value)
+
+    @staticmethod
+    def _float_token(value: float) -> str:
+        """Return filesystem-friendly float token (e.g. 99.5 -> 99_5)."""
+        return f"{float(value):g}".replace(".", "_")
 
     def set_config_file(self):
         config = configparser.ConfigParser()
@@ -118,7 +135,11 @@ class saveFilesC:
         return getattr(self.arg, f"{modality.lower()}_normalization_method", "percentile")
 
     def _normalize_for_save(
-        self, image_array: np.ndarray, method: str, path_to_file: str
+        self,
+        image_array: np.ndarray,
+        method: str,
+        path_to_file: str,
+        modality: str,
     ) -> tuple[np.ndarray, float, float]:
         """Apply a normalization strategy, returning ``(array_to_save, vmin, vmax)``.
 
@@ -129,10 +150,12 @@ class saveFilesC:
         """
         from .normalizers import NormalizationContext, get_normalizer
 
+        min_percentile, max_percentile = self._percentiles_for(modality)
+
         context = NormalizationContext(
             source_path=path_to_file,
-            min_percentile=self.min_percentile,
-            max_percentile=self.max_percentile,
+            min_percentile=min_percentile,
+            max_percentile=max_percentile,
             vmax_number=self.normalized_vmaxNumber,
         )
         return get_normalizer(method).normalize(image_array, context)
@@ -140,8 +163,27 @@ class saveFilesC:
     def saveFiles(self, pathToSave: pathlib.Path | str, image_array: np.ndarray):
         self.set_config_file()
         pathToSave = pathlib.Path(pathToSave)
-        finalpathToSave = pathToSave.with_suffix("." + self.saved_image_type)
         path_str = str(pathToSave)
+        
+        # Determine modality and get percentiles
+        modality = None
+        if self.T2W in path_str:
+            modality = "T2W"
+        elif self.ADC in path_str:
+            modality = "ADC"
+        elif self.HBV in path_str:
+            modality = "HBV"
+        
+        # Add percentile info to filename
+        if modality:
+            min_pct, max_pct = self._percentiles_for(modality)
+            min_token = self._float_token(min_pct)
+            max_token = self._float_token(max_pct)
+            pathToSave = pathToSave.with_stem(
+                f"{pathToSave.stem}_min{min_token}_max{max_token}"
+            )
+        
+        finalpathToSave = pathToSave.with_suffix("." + self.saved_image_type)
 
         if self.T2W in path_str:
             if self.normalized_image:
@@ -154,7 +196,10 @@ class saveFilesC:
                 )
             elif self.do_normalization:
                 array, minVal, maxVal = self._normalize_for_save(
-                    image_array, self._method_for("T2W"), self.orig_img_path_t2w
+                    image_array,
+                    self._method_for("T2W"),
+                    self.orig_img_path_t2w,
+                    "T2W",
                 )
                 self.saveImage(finalpathToSave, array, minVal, maxVal, self.saved_image_type)
             else:
@@ -163,26 +208,38 @@ class saveFilesC:
             method = self._method_for("ADC")
             if self.do_normalization:
                 array, minVal, maxVal = self._normalize_for_save(
-                    image_array, method, self.arg.orig_img_path_adc
+                    image_array,
+                    method,
+                    self.arg.orig_img_path_adc,
+                    "ADC",
                 )
             else:
                 # Percentile windowing (display only) is applied even without
                 # do_normalization, matching CROPro's original ADC behaviour.
                 array, minVal, maxVal = self._normalize_for_save(
-                    image_array, "percentile", self.arg.orig_img_path_adc
+                    image_array,
+                    "percentile",
+                    self.arg.orig_img_path_adc,
+                    "ADC",
                 )
             self.saveImage(finalpathToSave, array, minVal, maxVal, self.saved_image_type)
         elif self.HBV in path_str:
             method = self._method_for("HBV")
             if self.do_normalization:
                 array, minVal, maxVal = self._normalize_for_save(
-                    image_array, method, self.arg.orig_img_path_hbv
+                    image_array,
+                    method,
+                    self.arg.orig_img_path_hbv,
+                    "HBV",
                 )
             else:
                 # Percentile windowing (display only) is applied even without
                 # do_normalization, matching CROPro's original HBV behaviour.
                 array, minVal, maxVal = self._normalize_for_save(
-                    image_array, "percentile", self.arg.orig_img_path_hbv
+                    image_array,
+                    "percentile",
+                    self.arg.orig_img_path_hbv,
+                    "HBV",
                 )
             self.saveImage(finalpathToSave, array, minVal, maxVal, self.saved_image_type)
         else:

@@ -13,8 +13,6 @@ project_root = current_path.parents[2]
 class patientCropC(croppingControllerClass):
     def __init__(self, arg):
         self.arg = arg
-        self.min_percentile = arg.min_percentile
-        self.max_percentile = arg.max_percentile
         self.saved_image_type = arg.saved_image_type
         self.normalized_vmaxNumber = arg.normalized_vmaxNumber
         self.normalized_image = arg.normalized_image

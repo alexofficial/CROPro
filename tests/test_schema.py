@@ -218,34 +218,19 @@ def test_dataset_schema_exported_from_package():
 # --------------------------------------------------------------------------- #
 
 
-def test_example_picai_schema_loads(tmp_path):
+def test_example_pipeline_schema_loads(tmp_path):
     from pathlib import Path
 
-    schema_path = Path(__file__).resolve().parents[1] / "config" / "dataset_picai.toml"
+    schema_path = Path(__file__).resolve().parents[1] / "config" / "pipeline.toml"
     if not schema_path.is_file():
-        pytest.skip("config/dataset_picai.toml not present")
+        pytest.skip("config/pipeline.toml not present")
     schema = DatasetSchema.load(schema_path)
-    assert schema.name == "PI-CAI"
+    assert schema.name == "MyDataset"
     assert schema.get_naming("t2w_suffix") == "_t2w.mha"
     assert schema.get_crop("sequence_type") == "bpMRI"
     assert schema.should_resample_dataset() is True
     assert schema.should_use_resampled_input() is False
-    assert bool(schema.get_pipeline("normalize_t2w_3D", False)) is True
+    assert bool(schema.get_pipeline("normalize_t2w_3D", False)) is False
     assert schema.get_path("normalized_t2w_root") is None
     assert schema.get_split("enabled") is True
-    assert schema.get_path("cropro_root") == "dataset/PI-CAI/cropped_images"
-
-
-def test_example_prostate158_schema_loads(tmp_path):
-    from pathlib import Path
-
-    schema_path = Path(__file__).resolve().parents[1] / "config" / "dataset_prostate158.toml"
-    if not schema_path.is_file():
-        pytest.skip("config/dataset_prostate158.toml not present")
-    schema = DatasetSchema.load(schema_path)
-    assert schema.name == "Prostate158"
-    assert schema.get_naming("t2w_suffix") == "t2.nii.gz"
-    assert schema.get_naming("hbv_suffix") == "dwi.nii.gz"
-    assert schema.should_resample_dataset() is True
-    assert schema.get_split("enabled") is True
-    assert schema.get_path("cropro_root") == "dataset/Prostate158/cropped_images"
+    assert schema.get_path("cropro_root") == "dataset/MyDataset/cropped_images"

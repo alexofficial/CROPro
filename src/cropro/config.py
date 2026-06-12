@@ -60,8 +60,12 @@ class CropConfig:
     t2w_normalization_method: NormalizationMethod = "autoref"
     adc_normalization_method: NormalizationMethod = "percentile"
     hbv_normalization_method: NormalizationMethod = "percentile"
-    min_percentile: float = 0.5
-    max_percentile: float = 99.5
+    t2w_min_percentile: float = 0.0
+    t2w_max_percentile: float = 100.0
+    adc_min_percentile: float = 0.5
+    adc_max_percentile: float = 99.5
+    hbv_min_percentile: float = 0.5
+    hbv_max_percentile: float = 99.5
     saved_image_type: SavedImageType = "tiff"
     path_to_save: str | Path = "save_crop"
     c_min_positive: float = 0.2
@@ -76,6 +80,13 @@ class CropConfig:
             self.saved_image_type, self.saved_image_type
         )
         self._validate()
+
+    @staticmethod
+    def _validate_percentile_pair(min_value: float, max_value: float, label: str) -> None:
+        if min_value < 0 or max_value > 100:
+            raise ValueError(f"{label} percentiles must be in [0, 100].")
+        if min_value >= max_value:
+            raise ValueError(f"{label} min_percentile must be less than {label} max_percentile.")
 
     def _validate(self) -> None:
         if self.crop_method not in VALID_CROP_METHODS:
@@ -121,11 +132,21 @@ class CropConfig:
         if self.sample_number <= 0:
             raise ValueError("sample_number must be greater than 0.")
 
-        if self.min_percentile < 0 or self.max_percentile > 100:
-            raise ValueError("Percentiles must be in [0, 100].")
-
-        if self.min_percentile >= self.max_percentile:
-            raise ValueError("min_percentile must be less than max_percentile.")
+        self._validate_percentile_pair(
+            self.t2w_min_percentile,
+            self.t2w_max_percentile,
+            "t2w",
+        )
+        self._validate_percentile_pair(
+            self.adc_min_percentile,
+            self.adc_max_percentile,
+            "adc",
+        )
+        self._validate_percentile_pair(
+            self.hbv_min_percentile,
+            self.hbv_max_percentile,
+            "hbv",
+        )
 
         if not (0 <= self.c_min_positive):
             raise ValueError("c_min_positive must be greater than or equal to 0.")
