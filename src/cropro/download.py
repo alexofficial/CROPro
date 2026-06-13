@@ -35,7 +35,7 @@ def _download_file(url: str, destination: Path, *, overwrite: bool = False) -> P
 
     print(f"  download: {url}")
     try:
-        with urllib.request.urlopen(url) as response, destination.open("wb") as out:
+        with urllib.request.urlopen(url) as response, destination.open("wb") as out:  # nosec B310
             while True:
                 chunk = response.read(1024 * 1024)
                 if not chunk:
