@@ -459,8 +459,8 @@ def _add_crop_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--t2w_max_percentile",
         type=float,
-        default=99.5,
-        help="Upper percentile for T2W intensity clipping/windowing. Default: 99.5.",
+        default=100.0,
+        help="Upper percentile for T2W intensity clipping/windowing. Default: 100.0.",
     )
     parser.add_argument(
         "--adc_min_percentile",
@@ -1618,9 +1618,15 @@ def _run_crop_dataset(namespace: argparse.Namespace, parser: argparse.ArgumentPa
             ):
                 setattr(namespace, cli_attr, naming[schema_key])
 
-        for attr, key in (("images_root", "images_root"), ("gland_root", "gland_root"), ("lesion_root", "lesion_root")):
+        for attr, key in (
+            ("images_root", "images_root"),
+            ("gland_root", "gland_root"),
+            ("lesion_root", "lesion_root"),
+        ):
             if getattr(namespace, attr) is None and key in schema.paths:
-                setattr(namespace, attr, Path(schema.paths[key]))
+                raw = str(schema.paths[key]).strip()
+                if raw and raw.lower() != "none":
+                    setattr(namespace, attr, Path(raw))
 
         # Optional dual lesion roots: prefer human when non-empty, otherwise
         # fall back to AI-generated labels.
@@ -1646,6 +1652,13 @@ def _run_crop_dataset(namespace: argparse.Namespace, parser: argparse.ArgumentPa
                 namespace.human_labels_root = Path(hl)
 
     images_root = Path(namespace.images_root)
+
+    # In crop mode, fall back to conventional mask folders when explicit
+    # roots are not provided.
+    if getattr(namespace, "gland_root", None) is None:
+        namespace.gland_root = images_root.parent / "masks" / "gland"
+    if getattr(namespace, "lesion_root", None) is None:
+        namespace.lesion_root = images_root.parent / "masks" / "lesion"
 
     resample_first = getattr(namespace, "resample_dataset_first", None)
     if resample_first is None:

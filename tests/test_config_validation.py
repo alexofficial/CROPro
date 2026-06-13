@@ -29,8 +29,8 @@ def test_invalid_adc_percentile_range_raises():
 
 def test_modality_percentiles_have_explicit_defaults():
     config = CropConfig(**BASE_REQUIRED)
-    assert config.t2w_min_percentile == 0.5
-    assert config.t2w_max_percentile == 99.5
+    assert config.t2w_min_percentile == 0.0
+    assert config.t2w_max_percentile == 100.0
     assert config.adc_min_percentile == 0.5
     assert config.adc_max_percentile == 99.5
     assert config.hbv_min_percentile == 0.5
