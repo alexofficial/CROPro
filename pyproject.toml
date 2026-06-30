@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cropro"
-version = "0.1.7"
+version = "0.1.8"
 description = "Automated cropping of prostate MR images."
 readme = "README.md"
 requires-python = ">=3.13"
